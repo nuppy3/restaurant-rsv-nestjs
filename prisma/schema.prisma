@@ -1,0 +1,215 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ■スキーマ定義
+// スキーマとは、DBのTBL構造を表したデータモデル（modelキーワードにて実装）
+// このスキーマ定義をもとにDBマイグレーションを実施する（TBL作成など）
+// DBマイグレーション：npx prisma migrate dev --name init　（init部分は任意のマイグレーション名）
+model Item {
+  // <カラム(フィールド)> <Prismaの型> <DBの型(VarCharなど(Intは不要か）、PK,FK,デフォルト値指定> <DB(Postgresql)の型>
+
+  // あくまで型はPrismaの型を定義
+  // @id：PK指定
+  // default：デフォルト値を指定。uuidにて自動採番。
+  // @db.Uuid： PrismaのString型はPostgresqlだとtext型に変換されるので、Postgresqlの
+  // 　　　　　　Uuid型として認識させる、@db.Uuid を指定する。 
+  id          String     @id @default(uuid()) @db.Uuid
+  name        String     @db.VarChar(255)
+  price       Int
+  description String? // nullを許容
+  status      ItemStatus @default(ON_SALE)
+  // now(): データが追加されたタイミングの時間
+  // @db.Timestamp(0) : 秒まで表示
+  createdAt   DateTime   @default(now()) @db.Timestamp(0)
+  // @updatedAt: 更新時刻がセットされる
+  updatedAt   DateTime   @updatedAt @db.Timestamp(0)
+
+  // Userテーブルとの紐付け関連
+  userId String @db.Uuid
+  // Userテーブルとのリレーションを定義
+  // @relation：参照元(Item)と参照先(User)のモデルとの関連付けを行う
+  //　・fields属性：参照元(Item)モデルのキーを指定。
+  //  ・references属性：参照先(User)モデルの主キーを指定
+  //  ・onDelete: Cascade ： 関連するUserが削除されると、紐づくItemも削除される
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// あくまでPrismaのenumであり、Typescriptのenumじゃないから、プロパティに","を付与しない
+// Prismaの enum は、TypeScriptの標準の enum とは異なり、単なる文字列のリテラルとして動作します。
+// Prisma Clientを生成すると、この StoreStatus はTypeScriptのコード内で以下のunion型で解釈される
+// type StoreStatus = 'PUBLISHED' | 'EDITING' | 'SUSPENDED'; 
+// 
+// また、このenumはあくまでインフラ層(DB層)の定義であり、serviceなどでItemStatusを参照したい場合は
+// Domain層で、同じ値になるが、ItemStatusを定義する必要がある。
+// ドメイン層がInfra層の型を直接使用すると、依存性の方向が内側から外側に向かってしまい、クリーンアーキテクチャの原則が破綻します。
+enum ItemStatus {
+  ON_SALE
+  SOLD_OUT
+}
+
+model User {
+  id          String       @id @default(uuid()) @db.Uuid
+  name        String       @db.VarChar(255)
+  email       String       @unique @db.VarChar(255)
+  password    String       @db.VarChar(255)
+  status      UserStatus
+  createdAt   DateTime     @default(now()) @db.Timestamp(0)
+  updatedAt   DateTime     @updatedAt @db.Timestamp(0)
+  Items       Item[] // UserにItemsを持つ必要あるかな。。まぁ、Udemyの例がそうなのでいいか
+  stores      Store[]
+  // Prefecture[]は持たない。UserからPrefectureを辿らない。
+  // prefectures Prefecture[] 
+  prefectures Prefecture[]
+  regions     Region[]
+}
+
+enum UserStatus {
+  FREE
+  PREMIUM
+}
+
+// --------------
+model Store {
+  // <カラム(フィールド)> <Prismaの型> <DBの型(VarCharなど(Intは不要か）、PK,FK,デフォルト値指定> <DB(Postgresql)の型>
+
+  // あくまで型はPrismaの型を定義
+  // @id：PK指定
+  // default：デフォルト値を指定。uuidにて自動採番。
+  // @db.Uuid： PrismaのString型はPostgresqlだとtext型に変換されるので、Postgresqlの
+  // 　　　　　　Uuid型として認識させる、@db.Uuid を指定する。 
+  id            String      @id @default(uuid()) @db.Uuid
+  code          String?     @unique @db.VarChar(5)
+  name          String      @db.VarChar(255)
+  kanaName      String?     @db.VarChar(255)
+  status        StoreStatus @default(editing)
+  zipCode       String?     @db.VarChar(8)
+  email         String      @db.VarChar(255)
+  address       String?     @db.VarChar(255)
+  // prefectureを削除：今後、prefecture TBL を作成するため
+  // prefecture    String?    @db.VarChar(255)
+  phoneNumber   String      @db.VarChar(13)
+  businessHours String?     @db.VarChar(255)
+  // PostgreSQLはネイティブ配列型 (String[])という型が存在する（MySQL/oracleにはない）
+  holidays      String[] // String[]? は定義できない(任意NG) → 必須のリスト型（データがない場合は [] を使用）
+  // now(): データが追加されたタイミングの時間
+  // @db.Timestamp(0) : 秒まで表示
+  createdAt     DateTime    @default(now()) @db.Timestamp(0)
+  // @updatedAt: 更新時刻がセットされる
+  updatedAt     DateTime    @updatedAt @db.Timestamp(0)
+
+  // Userテーブルとの紐付け関連
+  // Userテーブルとのリレーションを定義
+  // @relation：参照元(Store)と参照先(User)のモデルとの関連付けを行う
+  //　・fields属性：参照元(Item)モデルのキーを指定。
+  //  ・references属性：参照先(User)モデルの主キーを指定
+  //  ・onDelete: Cascade ： 関連するUserが削除されると、紐づくStoreも削除される
+  userId       String      @db.Uuid
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Prefectureテーブルとのリレーション
+  prefectureId String?     @db.Uuid
+  prefecture   Prefecture? @relation(fields: [prefectureId], references: [id], onDelete: Cascade)
+}
+
+// あくまでPrismaのenumであり、Typescriptのenumじゃないから、プロパティに","を付与しない
+enum StoreStatus {
+  published
+  editing
+  suspended
+}
+
+model Prefecture {
+  // <カラム(フィールド)> <Prismaの型> <DBの型(VarCharなど(Intは不要か）、PK,FK,デフォルト値指定> <DB(Postgresql)の型>
+
+  // @id：PK指定
+  // default：デフォルト値を指定。uuidにて自動採番。
+  // @db.Uuid： PrismaのString型はPostgresqlだとtext型に変換されるので、Postgresqlの
+  // 　　　　　　Uuid型として認識させる、@db.Uuid を指定する。 
+  id        String           @id @default(uuid()) @db.Uuid
+  code      String           @unique @db.VarChar(2) // 01:北海道 13:東京
+  name      String           @db.VarChar(255)
+  kanaName  String           @db.VarChar(255)
+  status    PrefectureStatus @default(published)
+  kanaEn    String           @db.VarChar(255) // "Tokyo-to"
+  // now(): データが追加されたタイミングの時間
+  // @db.Timestamp(0) : 秒まで表示
+  createdAt DateTime         @default(now()) @db.Timestamp(0)
+  // @updatedAt: 更新時刻がセットされる
+  updatedAt DateTime         @updatedAt @db.Timestamp(0)
+
+  // Storeテーブルとのリレーション(1:N)
+  store Store[]
+
+  // Regionテーブルとの紐付け関連
+  // Regionテーブルとのリレーションを定義
+  // @relation：参照元(Prefecture)と参照先(Region)のモデルとの関連付けを行う
+  //　・fields属性：参照元(Item)モデルのキーを指定。
+  //  ・references属性：参照先(Region)モデルの主キーを指定
+  //  ・onDelete: Cascade ： 関連するUserが削除されると、紐づくStoreも削除される
+  regionId String? @db.Uuid
+  region   Region? @relation(fields: [regionId], references: [id], onDelete: Cascade)
+
+  // Userテーブルとの紐付け関連
+  // Userテーブルとのリレーションを定義
+  // @relation：参照元(Store)と参照先(User)のモデルとの関連付けを行う
+  //　・fields属性：参照元(Item)モデルのキーを指定。
+  //  ・references属性：参照先(User)モデルの主キーを指定
+  //  ・onDelete: Cascade ： 関連するUserが削除されると、紐づくStoreも削除される
+  userId String? @db.Uuid
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum PrefectureStatus {
+  published
+  editing
+  suspended
+}
+
+model Region {
+  // <カラム(フィールド)> <Prismaの型> <DBの型(VarCharなど(Intは不要か）、PK,FK,デフォルト値指定> <DB(Postgresql)の型>
+
+  // @id：PK指定
+  // default：デフォルト値を指定。uuidにて自動採番。
+  // @db.Uuid： PrismaのString型はPostgresqlだとtext型に変換されるので、Postgresqlの
+  // 　　　　　　Uuid型として認識させる、@db.Uuid を指定する。 
+  id          String       @id @default(uuid()) @db.Uuid
+  code        String       @unique @db.VarChar(2) // 01:北海道 13:東京
+  name        String       @db.VarChar(255)
+  kanaName    String       @db.VarChar(255)
+  status      RegionStatus @default(published)
+  kanaEn      String       @db.VarChar(255) // "tohoku"
+  // now(): データが追加されたタイミングの時間
+  // @db.Timestamp(0) : 秒まで表示
+  createdAt   DateTime     @default(now()) @db.Timestamp(0)
+  // @updatedAt: 更新時刻がセットされる
+  updatedAt   DateTime     @updatedAt @db.Timestamp(0)
+  // Prefectureテーブルとのリレーション(1:N)
+  prefectures Prefecture[]
+
+  // Userテーブルとの紐付け関連
+  // Userテーブルとのリレーションを定義
+  // @relation：参照元(Store)と参照先(User)のモデルとの関連付けを行う
+  //　・fields属性：参照元(Item)モデルのキーを指定。
+  //  ・references属性：参照先(User)モデルの主キーを指定
+  //  ・onDelete: Cascade ： 関連するUserが削除されると、紐づくStoreも削除される
+  userId String? @db.Uuid
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum RegionStatus {
+  published
+  editing
+  suspended
+}

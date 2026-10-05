@@ -1,0 +1,16 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "attach",         // attach を使う
+      "name": "Attach NestJS",
+      "port": 9229,                // npm run start:debug が開くポート
+      "restart": true,
+      "protocol": "inspector",
+      "skipFiles": ["<node_internals>/**"],
+      "sourceMaps": true,
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"] // 出力先を合わせる
+    }
+  ]
+}
