@@ -16,50 +16,8 @@ datasource db {
 
 // ■スキーマ定義
 // スキーマとは、DBのTBL構造を表したデータモデル（modelキーワードにて実装）
-// このスキーマ定義をもとにDBマイグレーションを実施する（TBL作成など）
-// DBマイグレーション：npx prisma migrate dev --name init　（init部分は任意のマイグレーション名）
-model Item {
-  // <カラム(フィールド)> <Prismaの型> <DBの型(VarCharなど(Intは不要か）、PK,FK,デフォルト値指定> <DB(Postgresql)の型>
-
-  // あくまで型はPrismaの型を定義
-  // @id：PK指定
-  // default：デフォルト値を指定。uuidにて自動採番。
-  // @db.Uuid： PrismaのString型はPostgresqlだとtext型に変換されるので、Postgresqlの
-  // 　　　　　　Uuid型として認識させる、@db.Uuid を指定する。 
-  id          String     @id @default(uuid()) @db.Uuid
-  name        String     @db.VarChar(255)
-  price       Int
-  description String? // nullを許容
-  status      ItemStatus @default(ON_SALE)
-  // now(): データが追加されたタイミングの時間
-  // @db.Timestamp(0) : 秒まで表示
-  createdAt   DateTime   @default(now()) @db.Timestamp(0)
-  // @updatedAt: 更新時刻がセットされる
-  updatedAt   DateTime   @updatedAt @db.Timestamp(0)
-
-  // Userテーブルとの紐付け関連
-  userId String @db.Uuid
-  // Userテーブルとのリレーションを定義
-  // @relation：参照元(Item)と参照先(User)のモデルとの関連付けを行う
-  //　・fields属性：参照元(Item)モデルのキーを指定。
-  //  ・references属性：参照先(User)モデルの主キーを指定
-  //  ・onDelete: Cascade ： 関連するUserが削除されると、紐づくItemも削除される
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-}
-
-// あくまでPrismaのenumであり、Typescriptのenumじゃないから、プロパティに","を付与しない
-// Prismaの enum は、TypeScriptの標準の enum とは異なり、単なる文字列のリテラルとして動作します。
-// Prisma Clientを生成すると、この StoreStatus はTypeScriptのコード内で以下のunion型で解釈される
-// type StoreStatus = 'PUBLISHED' | 'EDITING' | 'SUSPENDED'; 
-// 
-// また、このenumはあくまでインフラ層(DB層)の定義であり、serviceなどでItemStatusを参照したい場合は
-// Domain層で、同じ値になるが、ItemStatusを定義する必要がある。
-// ドメイン層がInfra層の型を直接使用すると、依存性の方向が内側から外側に向かってしまい、クリーンアーキテクチャの原則が破綻します。
-enum ItemStatus {
-  ON_SALE
-  SOLD_OUT
-}
-
+// このスキーマ定義をもとにDBへ反映する（TBL作成など）
+// DB反映：npx prisma db push（当面はmigrateを使わずdb push運用。詳細はREADME参照）
 model User {
   id          String       @id @default(uuid()) @db.Uuid
   name        String       @db.VarChar(255)
@@ -68,7 +26,6 @@ model User {
   status      UserStatus
   createdAt   DateTime     @default(now()) @db.Timestamp(0)
   updatedAt   DateTime     @updatedAt @db.Timestamp(0)
-  Items       Item[] // UserにItemsを持つ必要あるかな。。まぁ、Udemyの例がそうなのでいいか
   stores      Store[]
   // Prefecture[]は持たない。UserからPrefectureを辿らない。
   // prefectures Prefecture[] 
@@ -113,7 +70,7 @@ model Store {
   // Userテーブルとの紐付け関連
   // Userテーブルとのリレーションを定義
   // @relation：参照元(Store)と参照先(User)のモデルとの関連付けを行う
-  //　・fields属性：参照元(Item)モデルのキーを指定。
+  //　・fields属性：参照元(Store)モデルのキーを指定。
   //  ・references属性：参照先(User)モデルの主キーを指定
   //  ・onDelete: Cascade ： 関連するUserが削除されると、紐づくStoreも削除される
   userId       String      @db.Uuid
@@ -124,6 +81,13 @@ model Store {
 }
 
 // あくまでPrismaのenumであり、Typescriptのenumじゃないから、プロパティに","を付与しない
+// Prismaの enum は、TypeScriptの標準の enum とは異なり、単なる文字列のリテラルとして動作します。
+// Prisma Clientを生成すると、この StoreStatus はTypeScriptのコード内で以下のunion型で解釈される
+// type StoreStatus = 'published' | 'editing' | 'suspended';
+//
+// また、このenumはあくまでインフラ層(DB層)の定義であり、serviceなどでStoreStatusを参照したい場合は
+// Domain層で、同じ値になるが、StoreStatusを定義する必要がある。
+// ドメイン層がInfra層の型を直接使用すると、依存性の方向が内側から外側に向かってしまい、クリーンアーキテクチャの原則が破綻します。
 enum StoreStatus {
   published
   editing
@@ -155,18 +119,18 @@ model Prefecture {
   // Regionテーブルとの紐付け関連
   // Regionテーブルとのリレーションを定義
   // @relation：参照元(Prefecture)と参照先(Region)のモデルとの関連付けを行う
-  //　・fields属性：参照元(Item)モデルのキーを指定。
+  //　・fields属性：参照元(Prefecture)モデルのキーを指定。
   //  ・references属性：参照先(Region)モデルの主キーを指定
-  //  ・onDelete: Cascade ： 関連するUserが削除されると、紐づくStoreも削除される
+  //  ・onDelete: Cascade ： 関連するRegionが削除されると、紐づくPrefectureも削除される
   regionId String? @db.Uuid
   region   Region? @relation(fields: [regionId], references: [id], onDelete: Cascade)
 
   // Userテーブルとの紐付け関連
   // Userテーブルとのリレーションを定義
-  // @relation：参照元(Store)と参照先(User)のモデルとの関連付けを行う
-  //　・fields属性：参照元(Item)モデルのキーを指定。
+  // @relation：参照元(Prefecture)と参照先(User)のモデルとの関連付けを行う
+  //　・fields属性：参照元(Prefecture)モデルのキーを指定。
   //  ・references属性：参照先(User)モデルの主キーを指定
-  //  ・onDelete: Cascade ： 関連するUserが削除されると、紐づくStoreも削除される
+  //  ・onDelete: Cascade ： 関連するUserが削除されると、紐づくPrefectureも削除される
   userId String? @db.Uuid
   user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -200,10 +164,10 @@ model Region {
 
   // Userテーブルとの紐付け関連
   // Userテーブルとのリレーションを定義
-  // @relation：参照元(Store)と参照先(User)のモデルとの関連付けを行う
-  //　・fields属性：参照元(Item)モデルのキーを指定。
+  // @relation：参照元(Region)と参照先(User)のモデルとの関連付けを行う
+  //　・fields属性：参照元(Region)モデルのキーを指定。
   //  ・references属性：参照先(User)モデルの主キーを指定
-  //  ・onDelete: Cascade ： 関連するUserが削除されると、紐づくStoreも削除される
+  //  ・onDelete: Cascade ： 関連するUserが削除されると、紐づくRegionも削除される
   userId String? @db.Uuid
   user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

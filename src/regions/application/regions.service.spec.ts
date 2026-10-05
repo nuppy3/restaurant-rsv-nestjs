@@ -4,20 +4,20 @@ import { Test } from '@nestjs/testing';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
-    RegionAlreadyEditedException,
-    RegionAlreadyPublishedException,
-    RegionAlreadySuspendedException,
+  RegionAlreadyEditedException,
+  RegionAlreadyPublishedException,
+  RegionAlreadySuspendedException,
 } from '../domain/errors/regions.exceptions';
 import {
-    REGION_REPOSITORY_PORT,
-    RegionRepositoryPort,
+  REGION_REPOSITORY_PORT,
+  RegionRepositoryPort,
 } from '../domain/region.repository.port';
 import { RegionsDomainService } from '../domain/regions.domain.service';
 import {
-    ReconstituteRegionProps,
-    Region,
-    RegionState,
-    RegionStatus,
+  ReconstituteRegionProps,
+  Region,
+  RegionState,
+  RegionStatus,
 } from '../domain/regions.model';
 import { PublishRegionDto } from '../presentation/rest/dto/publish-region.dto';
 import { CreateRegionDto } from '../presentation/rest/dto/region.dto';

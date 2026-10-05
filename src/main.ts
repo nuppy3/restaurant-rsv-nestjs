@@ -22,8 +22,8 @@ async function bootstrap() {
 
   // 🔹 Swagger 設定
   const config = new DocumentBuilder()
-    .setTitle('My API：Fleamarket API')
-    .setDescription('NestJS APIドキュメント(フリーマーケットAPI)')
+    .setTitle('My API：Restaurant Reservation API')
+    .setDescription('NestJS APIドキュメント(レストラン予約API)')
     .setVersion('1.0.0')
     .addServer('http://localhost:4000') // ← NestJS API のポート(Docusaurusはデフォルト3000になるので)
     .build();

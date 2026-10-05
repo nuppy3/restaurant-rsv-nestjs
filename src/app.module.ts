@@ -7,12 +7,9 @@ import { APP_FILTER } from '@nestjs/core';
 import { join } from 'path';
 import { AuthModule } from './auth/auth.module';
 import { DomainExceptionFilter } from './common/presentation/filters/domain-exception.filter';
-import { ItemsNoDbModule } from './items-no-db/items-no-db.module';
-import { ItemsModule } from './items/items.module';
 import { PrefecturesModule } from './prefectures/prefectures.module';
 import { RegionsModule } from './regions/regions.module';
 import { StoresModule } from './stores/stores.module';
-import { TodoItemsModule } from './todo-items/todo-items.module';
 
 @Module({
   // featureモジュール(子モジュール)、外部モジュールの登録
@@ -37,9 +34,6 @@ import { TodoItemsModule } from './todo-items/todo-items.module';
       // 不要であれば消す
       sortSchema: true,
     }),
-    ItemsModule,
-    TodoItemsModule,
-    ItemsNoDbModule,
     AuthModule,
     StoresModule,
     PrefecturesModule,

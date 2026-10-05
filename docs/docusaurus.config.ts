@@ -18,12 +18,12 @@ const config: Config = {
   url: 'https://nuppy3.github.io',
   // Set the /<baseUrl>/ pathname under which your site is served
   // For GitHub pages deployment, it is often '/<projectName>/'
-  baseUrl: '/nestjs-fleamarket/',
+  baseUrl: '/restaurant-rsv-nestjs/',
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
   organizationName: 'nuppy3', // Usually your GitHub org/user name.
-  projectName: 'nestjs-fleamarket', // Usually your repo name.
+  projectName: 'restaurant-rsv-nestjs', // Usually your repo name.
   deploymentBranch: 'gh-pages', // これが必須 gh-pages ブランチを明示的に指定
 
   onBrokenLinks: 'throw',
