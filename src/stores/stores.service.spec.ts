@@ -9,7 +9,9 @@ import {
   Store as StorePrisma,
 } from '../../generated/prisma';
 import { PaginatedResult } from '../common/interfaces/paginated-result.interface';
-import { PrefecturesService } from '../prefectures/prefectures.service';
+import { PREFECTURE_REPOSITORY_PORT } from '../prefectures/domain/prefecture.repository.port';
+import { PrefectureRepository } from '../prefectures/infrastructure/prefecture.repository';
+import { PrefecturesQueryService } from '../prefectures/query/prefectures.query.service';
 import { RegionsModule } from '../regions/regions.module';
 import { PublishStoreDto } from './dto/publish-store.dto';
 import { CreateStoreDto } from './dto/store.dto';
@@ -84,7 +86,9 @@ describe('StoresService Test', () => {
         StoresService,
         // PrismaServiceはmock(mockPrismaService)に切り替える
         { provide: PrismaService, useValue: mockPrismaService },
-        PrefecturesService,
+        // 都道府県の参照はQueryService → Repository(本物) → PrismaService(mock)の経路で行う
+        PrefecturesQueryService,
+        { provide: PREFECTURE_REPOSITORY_PORT, useClass: PrefectureRepository },
       ],
     })
       // imports: [RegionsModule]によるJestの依存関係競合問題があるため、
