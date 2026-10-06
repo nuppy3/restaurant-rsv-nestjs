@@ -3,15 +3,15 @@
 import { Module } from '@nestjs/common';
 import { PrismaModule } from '../prisma/prisma.module';
 import { RegionsModule } from '../regions/regions.module';
+import { PrefecturesService } from './application/prefectures.service';
 import { PREFECTURE_REPOSITORY_PORT } from './domain/prefecture.repository.port';
 import { PrefecturesDomainService } from './domain/prefectures.domain.service';
 import { PrefectureRepository } from './infrastructure/prefecture.repository';
-import { PrefecturesController } from './prefectures.controller';
-import { PrefecturesService } from './prefectures.service';
+import { PrefecturesController } from './presentation/rest/prefectures.controller';
 import { PrefecturesQueryService } from './query/prefectures.query.service';
 
-// TODO(SI-755): 旧PrefecturesService(DDD-lite)をApplication層のPrefecturesServiceに置き換え、
-//               controllerもpresentation/restに移す
+// ※ 旧DDD-liteのファイル(prefectures.service.ts / prefectures.controller.ts / prefectures.model.ts /
+//    dto/ / entities/)は登録を外しただけで残している(手動で確認のうえ削除予定)
 @Module({
   imports: [PrismaModule, RegionsModule],
   controllers: [PrefecturesController],
