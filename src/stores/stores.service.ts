@@ -1,12 +1,12 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { Prefecture } from './../prefectures/prefectures.model';
+import { Prefecture } from '../prefectures/domain/prefectures.model';
 
 // uuidはDBでデフォルト登録するため不要
 // import { v4 as uuid } from 'uuid';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from 'generated/prisma';
 import { PaginatedResult } from 'src/common/interfaces/paginated-result.interface';
-import { PrefecturesService } from '../prefectures/prefectures.service';
+import { PrefecturesQueryService } from '../prefectures/query/prefectures.query.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PublishStoreDto } from './dto/publish-store.dto';
 import { CreateStoreDto } from './dto/store.dto';
@@ -19,7 +19,7 @@ export class StoresService {
   constructor(
     private readonly configService: ConfigService,
     private readonly prismaService: PrismaService,
-    private readonly prefectureService: PrefecturesService,
+    private readonly prefectureService: PrefecturesQueryService,
   ) {}
 
   /**
