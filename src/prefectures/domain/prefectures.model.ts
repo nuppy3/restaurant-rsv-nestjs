@@ -296,6 +296,7 @@ export class Prefecture {
     if (this._status === PrefectureStatus.PUBLISHED) {
       throw new PrefectureAlreadyPublishedException(this._name);
     }
+    // 紐づく地方が存在するか(regionIdが存在するか）
     // 自身の状態(regionId)だけで判定できるルールなので、DomainServiceではなくEntityに置く
     if (!this._regionId) {
       throw new PrefectureRegionNotAssignedException(this._name);
