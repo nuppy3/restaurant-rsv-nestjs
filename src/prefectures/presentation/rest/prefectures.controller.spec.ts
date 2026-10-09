@@ -518,6 +518,7 @@ describe('■■■ PrefecturesController(presentation/rest) TEST ■■■', ()
 
 /**
  * 詳細Read Model(QueryServiceの戻り値)を作成するヘルパー
+ * ベースは投稿と
  *
  * getDetailByIdOrThrow / getDetailByCodeOrThrow などが返すデータの代わりに使う。
  * 基本形は「掲載中(published)・地方(関東)ありの東京都」。引数で一部の項目だけを上書きできる。
@@ -542,6 +543,7 @@ const buildMockDetailReadModel = (
 
 /**
  * domain(Application Serviceの戻り値)を作成するヘルパー
+ * ベースは東京都
  *
  * create / update / publish / unpublish / remove が返す domain(Prefecture & { id }) の代わりに使う。
  * 基本形は「編集中(editing)・地方(関東)ありの東京都」。引数で一部の項目だけを上書きできる。
