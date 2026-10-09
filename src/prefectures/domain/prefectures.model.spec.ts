@@ -47,6 +47,7 @@ describe('□□□ Prefecture Domain Test □□□', () => {
       // 検証: 新規作成時のstatusは必ず編集中(editing)
       expect(prefecture.status).toBe(PrefectureStatus.EDITING);
       // 検証: createdAt / updatedAt が作成時刻(実行直前の時刻以降)になっていること
+      // updateAT・createdAt > 現在時刻
       expect(prefecture.createdAt.getTime()).toBeGreaterThanOrEqual(
         before.getTime(),
       );
