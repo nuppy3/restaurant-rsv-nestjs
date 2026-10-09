@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
+import { Prefecture as PrismaPrefecture } from 'generated/prisma';
 import { PAGINATION } from '../../common/constants/pagination.constants';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
@@ -42,6 +43,11 @@ const REGION_ID = '57a39a4b-921c-48ed-8045-4054be56feee';
 const CREATED_AT = new Date('2025-04-05T10:00:00.000Z');
 const UPDATED_AT = new Date('2025-04-05T12:30:00.000Z');
 
+// QueryService が受け取るレコードの形(地方名を include したもの)
+type PrismaPrefectureWithRegion = PrismaPrefecture & {
+  region: { name: string } | null;
+};
+
 /**
  * Prismaレコード(地方名include)のmock dataを作成するヘルパー
  *
@@ -53,9 +59,13 @@ const UPDATED_AT = new Date('2025-04-05T12:30:00.000Z');
  *   例) buildPrismaRecord()                                   → 関東の東京都
  *       buildPrismaRecord({ regionId: null, region: null })   → 地方未設定(DBではnull)
  */
+// Record<string, unknown> は型安全じゃないので → PrismaPrefectureWithRegionに修正
+// const buildPrismaRecord = (
+//   overrides: Record<string, unknown> = {},
+// ): Record<string, unknown> => ({
 const buildPrismaRecord = (
-  overrides: Record<string, unknown> = {},
-): Record<string, unknown> => ({
+  overrides: Partial<PrismaPrefectureWithRegion> = {},
+): PrismaPrefectureWithRegion => ({
   id: '17b54147-b6ed-4d4e-a25f-4b632b0b444e',
   code: '13',
   name: '東京都',
