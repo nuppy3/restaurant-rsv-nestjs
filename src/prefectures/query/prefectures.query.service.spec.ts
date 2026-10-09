@@ -9,6 +9,7 @@ import {
   PrefectureRepositoryPort,
 } from '../domain/prefecture.repository.port';
 import { Prefecture, PrefectureStatus } from '../domain/prefectures.model';
+import { PrefectureFilter } from './prefecture.filter';
 import { PrefecturesQueryService } from './prefectures.query.service';
 
 // MockPrismaService定義
@@ -145,16 +146,14 @@ describe('■■■ PrefecturesQueryService test ■■■', () => {
           status: 'editing',
           regionId: null,
           region: null,
-        }),
+        }) satisfies PrismaPrefectureWithRegion,
       ]);
       // prisma mock data 作成: count(全件数)
       mockPrismaService.prefecture.count.mockResolvedValue(47);
 
       // test対象service呼び出し(2ページ目・1ページ10件)
-      const result = await prefecturesQueryService.findAllPaginated({
-        page: 2,
-        size: 10,
-      });
+      const filters = { page: 2, size: 10 } satisfies PrefectureFilter;
+      const result = await prefecturesQueryService.findAllPaginated(filters);
 
       // 検証: Read Modelの配列とmetaが返却されること
       // ・userId / createdAt / updatedAt はRead Modelに含まれない
@@ -179,6 +178,7 @@ describe('■■■ PrefecturesQueryService test ■■■', () => {
             kanaName: 'アオモリケン',
             kanaEn: 'Aomori-ken',
             status: PrefectureStatus.EDITING,
+            // DBのnullはRead Modelではundefinedに変換される
             regionId: undefined,
             regionName: undefined,
           },
@@ -195,8 +195,26 @@ describe('■■■ PrefecturesQueryService test ■■■', () => {
         take: 10,
         skip: 10,
       });
+
+      // Promise.allが呼ばれた証拠として、両方が呼ばれていることを確認
+      // regions.query.service.spec.tsでは'Promise.all が正しく並列で呼ばれていることを確認'という
+      // test caseで実施していたが、正常系に含めてみた↓
+      expect(mockPrismaService.prefecture.findMany).toHaveBeenCalledTimes(1);
+      expect(mockPrismaService.prefecture.count).toHaveBeenCalledTimes(1);
     });
 
+    /**
+     * findAllの絞り込み(filter)テストは、toEqual()の検証ではなく、toHaveBeenCalledWithを
+     * 用いて、Prismaが期待通りの引数で呼び出されているかをメインに検証する。
+     *
+     * Prismaはmockしているので、返却値はmockでセットされるため、レスポンス(Prisma/service)を
+     * toEqual()にて検証しても意味がない。
+     *
+     * nushi: query paramater は指定・未指定/境界値のテストバリエーションが多岐に渡るので
+     * it.each（テーブル、データ駆動テスト）でもいいと思うが、query paramaterが少ないので
+     * 一旦以下のケースに収める。（regions.query.service.spec.tsはit.each（テーブル、データ駆動テスト）
+     * でテストを実施している。
+     */
     it('正常系: page/size未指定の場合、環境変数のデフォルト値が使われること', async () => {
       // config mock 設定: 環境変数の値
       // PREFECTURE_DEFAULT_PAGE_SIZE → 20、それ以外(PREFECTURE_DEFAULT_PAGE) → 1 を返す
@@ -205,7 +223,7 @@ describe('■■■ PrefecturesQueryService test ■■■', () => {
       mockConfigService.get.mockImplementation((key: string) =>
         key === 'PREFECTURE_DEFAULT_PAGE_SIZE' ? 20 : 1,
       );
-      // prisma mock data 作成: 0件
+      // prisma mock data 作成: 0件 (なんでもいい)
       mockPrismaService.prefecture.findMany.mockResolvedValue([]);
       mockPrismaService.prefecture.count.mockResolvedValue(0);
 
@@ -214,6 +232,7 @@ describe('■■■ PrefecturesQueryService test ■■■', () => {
 
       // 検証: 環境変数のデフォルト値(page: 1, size: 20)が使われること
       expect(result.meta).toEqual({ totalCount: 0, page: 1, size: 20 });
+
       // 検証: Prismaにも take: 20、skip: (1 - 1) * 20 = 0 で渡されること
       // (expect.objectContaining: 指定した項目だけを部分一致で検証する)
       expect(mockPrismaService.prefecture.findMany).toHaveBeenCalledWith(
@@ -222,15 +241,16 @@ describe('■■■ PrefecturesQueryService test ■■■', () => {
     });
 
     it('境界値: sizeが上限を超える場合はMAX_PAGE_SIZE、pageが下限未満の場合はMIN_PAGEに丸められること', async () => {
-      // prisma mock data 作成: 0件(件数ではなく丸めの結果だけを見るため)
+      // prisma mock data 作成: 0件 (なんでもいい)
       mockPrismaService.prefecture.findMany.mockResolvedValue([]);
       mockPrismaService.prefecture.count.mockResolvedValue(0);
 
       // test対象service呼び出し: page は下限(1)未満、size は上限(2000)超え
-      const result = await prefecturesQueryService.findAllPaginated({
-        page: 0,
-        size: PAGINATION.MAX_PAGE_SIZE + 1,
-      });
+      const filters = {
+        page: 0, // 下限(1)未満
+        size: PAGINATION.MAX_PAGE_SIZE + 1, // 上限値超え
+      } satisfies PrefectureFilter;
+      const result = await prefecturesQueryService.findAllPaginated(filters);
 
       // 検証: size は上限の MAX_PAGE_SIZE、page は下限の MIN_PAGE に丸められること
       expect(result.meta.size).toBe(PAGINATION.MAX_PAGE_SIZE);
@@ -238,15 +258,16 @@ describe('■■■ PrefecturesQueryService test ■■■', () => {
     });
 
     it('境界値: sizeが下限未満の場合はMIN_PAGE_SIZE、pageが上限を超える場合はMAX_PAGEに丸められること', async () => {
-      // prisma mock data 作成: 0件
+      // prisma mock data 作成: 0件 (なんでもいい)
       mockPrismaService.prefecture.findMany.mockResolvedValue([]);
       mockPrismaService.prefecture.count.mockResolvedValue(0);
 
       // test対象service呼び出し: page は上限(10000)超え、size は下限(1)未満
-      const result = await prefecturesQueryService.findAllPaginated({
-        page: PAGINATION.MAX_PAGE + 1,
-        size: 0,
-      });
+      const filters = {
+        page: PAGINATION.MAX_PAGE + 1, // 上限越え
+        size: 0, // 下限(1)未満
+      } satisfies PrefectureFilter;
+      const result = await prefecturesQueryService.findAllPaginated(filters);
 
       // 検証: size は下限の MIN_PAGE_SIZE、page は上限の MAX_PAGE に丸められること
       expect(result.meta.size).toBe(PAGINATION.MIN_PAGE_SIZE);
