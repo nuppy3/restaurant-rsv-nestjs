@@ -39,49 +39,15 @@ const mockPrefectureRepository = {
   save: jest.fn(),
 } as jest.Mocked<PrefectureRepositoryPort>; // as jest.Mocked<>はなくてもいいが、型安全に
 
-// テストデータ(各テストで共通に使う値)
-const REGION_ID = '57a39a4b-921c-48ed-8045-4054be56feee';
-const CREATED_AT = new Date('2025-04-05T10:00:00.000Z');
-const UPDATED_AT = new Date('2025-04-05T12:30:00.000Z');
-
 // QueryService が受け取るレコードの形(地方名を include したもの)
 type PrismaPrefectureWithRegion = PrismaPrefecture & {
   region: { name: string } | null;
 };
 
-/**
- * Prismaレコード(地方名include)のmock dataを作成するヘルパー
- *
- * prisma.prefecture.findMany / findUnique が返すレコードの代わりに使う。
- * QueryServiceは include: { region: { select: { name: true } } } で地方名も取得するため、
- * レコードに region: { name } を含めている。
- *
- * 基本形は「掲載中(published)・地方(関東)ありの東京都」。引数で一部の項目だけを上書きできる。
- *   例) buildPrismaRecord()                                   → 関東の東京都
- *       buildPrismaRecord({ regionId: null, region: null })   → 地方未設定(DBではnull)
- */
-// Record<string, unknown> は型安全じゃないので → PrismaPrefectureWithRegionに修正
-// const buildPrismaRecord = (
-//   overrides: Record<string, unknown> = {},
-// ): Record<string, unknown> => ({
-const buildPrismaRecord = (
-  overrides: Partial<PrismaPrefectureWithRegion> = {},
-): PrismaPrefectureWithRegion => ({
-  id: '17b54147-b6ed-4d4e-a25f-4b632b0b444e',
-  code: '13',
-  name: '東京都',
-  kanaName: 'トウキョウト',
-  status: 'published',
-  kanaEn: 'Tokyo-to',
-  createdAt: CREATED_AT,
-  updatedAt: UPDATED_AT,
-  regionId: REGION_ID,
-  userId: '00000000-0000-4000-8000-000000000001',
-  // includeで取得した地方(Region)の名前
-  region: { name: '関東' },
-  // 引数で渡された項目だけ、上の値を上書きする
-  ...overrides,
-});
+// テストデータ(各テストで共通に使う値)
+const REGION_ID = '57a39a4b-921c-48ed-8045-4054be56feee';
+const CREATED_AT = new Date('2025-04-05T10:00:00.000Z');
+const UPDATED_AT = new Date('2025-04-05T12:30:00.000Z');
 
 describe('■■■ PrefecturesQueryService test ■■■', () => {
   // DIモジュール
@@ -465,4 +431,38 @@ describe('■■■ PrefecturesQueryService test ■■■', () => {
       ).toHaveBeenCalledWith('13');
     });
   });
+});
+
+/**
+ * Prismaレコード(地方名include)のmock dataを作成するヘルパー
+ *
+ * prisma.prefecture.findMany / findUnique が返すレコードの代わりに使う。
+ * QueryServiceは include: { region: { select: { name: true } } } で地方名も取得するため、
+ * レコードに region: { name } を含めている。
+ *
+ * 基本形は「掲載中(published)・地方(関東)ありの東京都」。引数で一部の項目だけを上書きできる。
+ *   例) buildPrismaRecord()                                   → 関東の東京都
+ *       buildPrismaRecord({ regionId: null, region: null })   → 地方未設定(DBではnull)
+ */
+// Record<string, unknown> は型安全じゃないので → PrismaPrefectureWithRegionに修正
+// const buildPrismaRecord = (
+//   overrides: Record<string, unknown> = {},
+// ): Record<string, unknown> => ({
+const buildPrismaRecord = (
+  overrides: Partial<PrismaPrefectureWithRegion> = {},
+): PrismaPrefectureWithRegion => ({
+  id: '17b54147-b6ed-4d4e-a25f-4b632b0b444e',
+  code: '13',
+  name: '東京都',
+  kanaName: 'トウキョウト',
+  status: 'published',
+  kanaEn: 'Tokyo-to',
+  createdAt: CREATED_AT,
+  updatedAt: UPDATED_AT,
+  regionId: REGION_ID,
+  userId: '00000000-0000-4000-8000-000000000001',
+  // includeで取得した地方(Region)の名前
+  region: { name: '関東' },
+  // 引数で渡された項目だけ、上の値を上書きする
+  ...overrides,
 });
