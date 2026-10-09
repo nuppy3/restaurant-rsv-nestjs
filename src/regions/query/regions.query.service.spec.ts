@@ -1052,7 +1052,7 @@ function createPrismaMockData(): (PrismaRegion & {
       updatedAt: new Date('2025-04-05T12:30:00.000Z'),
       userId: '633931d5-2b25-45f1-8006-c137af49e53d',
       _count: { prefectures: 1 },
-    },
+    } satisfies PrismaRegion & { _count: { prefectures: number } },
     {
       id: 'ad24dc98-89a2-4db1-9431-b20feff57700',
       name: '東北',
@@ -1064,7 +1064,7 @@ function createPrismaMockData(): (PrismaRegion & {
       updatedAt: new Date('2025-04-05T12:30:00.000Z'),
       userId: '633931d5-2b25-45f1-8006-c137af49e53d',
       _count: { prefectures: 2 },
-    },
+    } satisfies PrismaRegion & { _count: { prefectures: number } },
     {
       id: '0324dc98-89a2-4db1-9431-b20feff57700',
       name: '関東',
@@ -1076,7 +1076,7 @@ function createPrismaMockData(): (PrismaRegion & {
       updatedAt: new Date('2025-04-05T12:30:00.000Z'),
       userId: '633931d5-2b25-45f1-8006-c137af49e53d',
       _count: { prefectures: 3 },
-    },
+    } satisfies PrismaRegion & { _count: { prefectures: number } },
     {
       id: '0424dc98-89a2-4db1-9431-b20feff57700',
       name: '東海',
@@ -1088,7 +1088,7 @@ function createPrismaMockData(): (PrismaRegion & {
       updatedAt: new Date('2025-04-05T12:30:00.000Z'),
       userId: '633931d5-2b25-45f1-8006-c137af49e53d',
       _count: { prefectures: 4 },
-    },
+    } satisfies PrismaRegion & { _count: { prefectures: number } },
     {
       id: '0524dc98-89a2-4db1-9431-b20feff57700',
       name: '北陸',
@@ -1100,8 +1100,8 @@ function createPrismaMockData(): (PrismaRegion & {
       updatedAt: new Date('2025-04-05T12:30:00.000Z'),
       userId: '633931d5-2b25-45f1-8006-c137af49e53d',
       _count: { prefectures: 5 },
-    },
-  ];
+    } satisfies PrismaRegion & { _count: { prefectures: number } },
+  ] satisfies (PrismaRegion & { _count: { prefectures: number } })[];
   return mockDatas;
 }
 
