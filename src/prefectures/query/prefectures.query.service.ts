@@ -39,14 +39,23 @@ export class PrefecturesQueryService {
   async findAllPaginated(
     filters: PrefectureFilter = {},
   ): Promise<PaginatedResult<PrefectureListReadModel>> {
+    // take句作成(ページサイズ): 1〜2000
+    // デフォルト値設定（sizeが指定されていない場合、環境変数REGION_DEFAULT_PAGE_SIZEを参照し、未設定の場合は20件）
     const defaultSize =
       this.configService.get<number>('PREFECTURE_DEFAULT_PAGE_SIZE') ?? 20;
+    // 1〜2000の範囲に制限
+    // momo: なぜ、「.env」にPAGE_SIZEを定義しているのに(すればいいのに)、PAGINATION.MIN_PAGE_SIZE
+    //       のように定数を別で定義しているかはpagination.constants.tsクラスのコメントを参照
     const size = Math.min(
       PAGINATION.MAX_PAGE_SIZE,
       Math.max(PAGINATION.MIN_PAGE_SIZE, filters.size ?? defaultSize),
     );
+
+    // skip句作成(offset)
+    // page指定が無ければデフォルト設定(1〜10000)
     const defaultPage =
       this.configService.get<number>('PREFECTURE_DEFAULT_PAGE') ?? 1;
+    //
     const page = Math.min(
       PAGINATION.MAX_PAGE,
       Math.max(PAGINATION.MIN_PAGE, filters.page ?? defaultPage),
