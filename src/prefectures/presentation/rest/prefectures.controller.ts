@@ -372,6 +372,7 @@ export class PrefecturesController {
   // ① オーバーロードのシグネチャ(呼び出し側から見える型の約束)
   private toResponseDto(source: object[]): PrefectureResponseDto[];
   private toResponseDto(source: object): PrefectureResponseDto;
+
   // ② 実装(呼び出し側からは見えない。①の両方の約束を満たす型で書く)
   private toResponseDto(
     source: object | object[],
