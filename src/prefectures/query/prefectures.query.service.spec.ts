@@ -435,6 +435,7 @@ describe('■■■ PrefecturesQueryService test ■■■', () => {
 
 /**
  * Prismaレコード(地方名include)のmock dataを作成するヘルパー
+ * ベースは東京都
  *
  * prisma.prefecture.findMany / findUnique が返すレコードの代わりに使う。
  * QueryServiceは include: { region: { select: { name: true } } } で地方名も取得するため、
