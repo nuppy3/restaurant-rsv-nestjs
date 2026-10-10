@@ -31,6 +31,9 @@ model User {
   // prefectures Prefecture[] 
   prefectures Prefecture[]
   regions     Region[]
+  // City / Districtテーブルとのリレーション(1:N)。作成・更新したユーザー
+  cities      City[]
+  districts   District[]
 }
 
 enum UserStatus {
@@ -78,6 +81,11 @@ model Store {
   // Prefectureテーブルとのリレーション
   prefectureId String?     @db.Uuid
   prefecture   Prefecture? @relation(fields: [prefectureId], references: [id], onDelete: Cascade)
+  // Districtテーブル(検索用の地区。例: 銀座)とのリレーション(任意)
+  //  ・onDelete: SetNull ： 関連するDistrictが削除されても店舗は残し、districtIdだけをnullにする
+  //    (地区の物理削除で店舗まで消えるのを防ぐため、Cascadeにしない)
+  districtId   String?     @db.Uuid
+  district     District?   @relation(fields: [districtId], references: [id], onDelete: SetNull)
 }
 
 // あくまでPrismaのenumであり、Typescriptのenumじゃないから、プロパティに","を付与しない
@@ -115,6 +123,9 @@ model Prefecture {
 
   // Storeテーブルとのリレーション(1:N)
   store Store[]
+
+  // Cityテーブル(検索用の都市)とのリレーション(1:N)
+  cities City[]
 
   // Regionテーブルとの紐付け関連
   // Regionテーブルとのリレーションを定義
@@ -173,6 +184,85 @@ model Region {
 }
 
 enum RegionStatus {
+  published
+  editing
+  suspended
+}
+
+// --------------
+// City(都市)・District(地区)
+// 検索用のエリア(フロントの「東京 → 銀座」のような2階層)。
+// 行政区分(Region → Prefecture)とは別に持つ(例: 横浜は「都市」だが都道府県ではない)。
+// --------------
+model City {
+  // @id：PK指定 / default：uuidにて自動採番 / @db.Uuid：PostgreSQLのUuid型として扱う
+  id        String     @id @default(uuid()) @db.Uuid
+  code      String     @unique @db.VarChar(3) // '001'〜
+  name      String     @db.VarChar(255) // 東京
+  kanaName  String     @db.VarChar(255) // トウキョウ
+  // URL用の識別子(例: tokyo)。半角英小文字・数字・ハイフンのみ(形式チェックはDTOで行う)
+  slug      String     @unique @db.VarChar(50)
+  status    CityStatus @default(editing)
+  // 画面での表示順(昇順)
+  sortOrder Int        @default(0)
+  // now(): データが追加されたタイミングの時間 / @db.Timestamp(0) : 秒まで表示
+  createdAt DateTime   @default(now()) @db.Timestamp(0)
+  // @updatedAt: 更新時刻がセットされる
+  updatedAt DateTime   @updatedAt @db.Timestamp(0)
+
+  // Districtテーブルとのリレーション(1:N)
+  districts District[]
+
+  // Prefectureテーブルとの紐付け関連(任意。例: 東京 → 東京都、横浜 → 神奈川県)
+  //  ・onDelete: SetNull ： 関連するPrefectureが削除されても都市は残し、prefectureIdだけをnullにする
+  //    (既存モデルのCascadeにそろえない。都道府県の物理削除で都市まで消えるのを防ぐため)
+  prefectureId String?     @db.Uuid
+  prefecture   Prefecture? @relation(fields: [prefectureId], references: [id], onDelete: SetNull)
+
+  // Userテーブルとの紐付け関連(作成・更新したユーザー)
+  //  ・onDelete: Cascade ： 関連するUserが削除されると、紐づくCityも削除される(既存モデルと同じ)
+  userId String? @db.Uuid
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+enum CityStatus {
+  published
+  editing
+  suspended
+}
+
+model District {
+  id        String         @id @default(uuid()) @db.Uuid
+  code      String         @unique @db.VarChar(5) // '00001'〜
+  name      String         @db.VarChar(255) // 銀座
+  kanaName  String         @db.VarChar(255) // ギンザ
+  // URL用の識別子(例: ginza)。フロントは ?area=ginza のように地区のslugだけで検索するため、全都市で一意にする
+  slug      String         @unique @db.VarChar(50)
+  status    DistrictStatus @default(editing)
+  // 画面での表示順(都市の中での昇順)
+  sortOrder Int            @default(0)
+  createdAt DateTime       @default(now()) @db.Timestamp(0)
+  updatedAt DateTime       @updatedAt @db.Timestamp(0)
+
+  // Storeテーブルとのリレーション(1:N)
+  stores Store[]
+
+  // Cityテーブルとの紐付け関連(必須。地区は必ずどこかの都市に属する)
+  //  ・onDelete: Restrict ： 地区が紐づいている都市は物理削除できない
+  //    (都市の物理削除で地区まで消えるのを防ぐため、Cascadeにしない)
+  cityId String @db.Uuid
+  city   City   @relation(fields: [cityId], references: [id], onDelete: Restrict)
+
+  // Userテーブルとの紐付け関連(作成・更新したユーザー)
+  userId String? @db.Uuid
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // 都市ごとの地区一覧(cityIdでの検索)を速くするためのインデックス
+  // (PostgreSQLは外部キーに自動でインデックスを作らない)
+  @@index([cityId])
+}
+
+enum DistrictStatus {
   published
   editing
   suspended
