@@ -14,7 +14,7 @@ import {
   Min,
 } from 'class-validator';
 import { PaginatedResult } from 'src/common/interfaces/paginated-result.interface';
-import { type Prefecture } from '../../prefectures/prefectures.model';
+import { type PrefectureState as Prefecture } from '../../prefectures/domain/prefectures.model';
 import {
   SortBy,
   SortOrder,
