@@ -1,5 +1,5 @@
 import { StoreStatus } from 'generated/prisma';
-import { PrefectureState as Prefecture } from '../../prefectures/domain/prefectures.model';
+import { Prefecture } from '../../prefectures/prefectures.model';
 import { Weekday } from '../stores.model';
 
 /**
