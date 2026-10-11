@@ -11,11 +11,11 @@ import {
 import { PrefectureRepository } from './prefecture.repository';
 
 // MockService定義
+// saveはupsert1本で作成・更新を行うため、create / update ではなく upsert をモックする
 const mockPrismaService = {
   prefecture: {
     findUnique: jest.fn(),
-    create: jest.fn(),
-    update: jest.fn(),
+    upsert: jest.fn(),
   },
 };
 
@@ -46,27 +46,24 @@ const buildPrismaRecord = (
 });
 
 /**
- * Prefecture domain(ID付き)を作成するヘルパー
- * idが空文字の場合は新規作成扱い
+ * Prefecture domainを作成するヘルパー
+ * domain自身がidを持つため、reconstituteにidを渡すだけでよい(Object.assignでの後付けは不要)
  */
-const buildDomainWithId = (
-  id: string,
+const buildDomain = (
   overrides: Partial<ReconstitutePrefectureProps> = {},
-): Prefecture & { id: string } =>
-  Object.assign(
-    Prefecture.reconstitute({
-      code: '13',
-      name: '東京都',
-      kanaName: 'トウキョウト',
-      kanaEn: 'Tokyo-to',
-      status: PrefectureStatus.EDITING,
-      regionId: REGION_ID,
-      createdAt: CREATED_AT,
-      updatedAt: UPDATED_AT,
-      ...overrides,
-    }),
-    { id },
-  );
+): Prefecture =>
+  Prefecture.reconstitute({
+    id: PREFECTURE_ID,
+    code: '13',
+    name: '東京都',
+    kanaName: 'トウキョウト',
+    kanaEn: 'Tokyo-to',
+    status: PrefectureStatus.EDITING,
+    regionId: REGION_ID,
+    createdAt: CREATED_AT,
+    updatedAt: UPDATED_AT,
+    ...overrides,
+  });
 
 describe('□□□ Prefecture Repository TEST □□□', () => {
   let prefectureRepository: PrefectureRepository;
@@ -93,7 +90,7 @@ describe('□□□ Prefecture Repository TEST □□□', () => {
   // findByIdOrFail test
   //--------------------------------------
   describe('findByIdOrFail test', () => {
-    it('正常系: Prismaデータが Prefecture domain + id に変換されること', async () => {
+    it('正常系: Prismaデータが Prefecture domain(idを含む)に変換されること', async () => {
       jest
         .spyOn(prismaService.prefecture, 'findUnique')
         .mockResolvedValue(buildPrismaRecord());
@@ -102,7 +99,9 @@ describe('□□□ Prefecture Repository TEST □□□', () => {
 
       expect(result).toBeInstanceOf(Prefecture);
       expect(result.id).toBe(PREFECTURE_ID);
+      // idもreconstituteで復元されるため、スナップショットに含まれる
       expect(result.toSnapshot()).toEqual({
+        id: PREFECTURE_ID,
         code: '13',
         name: '東京都',
         kanaName: 'トウキョウト',
@@ -146,7 +145,7 @@ describe('□□□ Prefecture Repository TEST □□□', () => {
   // findByCodeOrFail test
   //--------------------------------------
   describe('findByCodeOrFail test', () => {
-    it('正常系: Prismaデータが Prefecture domain + id に変換されること', async () => {
+    it('正常系: Prismaデータが Prefecture domain(idを含む)に変換されること', async () => {
       jest
         .spyOn(prismaService.prefecture, 'findUnique')
         .mockResolvedValue(buildPrismaRecord());
@@ -177,23 +176,29 @@ describe('□□□ Prefecture Repository TEST □□□', () => {
   //--------------------------------------
   // save test
   //--------------------------------------
+  // saveはupsert(where: id)で、DBに同じidが無ければcreate、あればupdateになる。
+  // どちらになるかはDB側で決まるため、ここでは「upsertに渡す引数(where / create / update)」を検証する
   describe('save test', () => {
-    describe('新規作成(idが空)', () => {
-      it('正常系: createが呼ばれ、地方ありの場合はregionをconnectすること', async () => {
+    describe('正常系', () => {
+      it('upsertがdomainのidで呼ばれ、createにはidを含め、updateにはidを含めないこと(地方あり → connect)', async () => {
         jest
-          .spyOn(prismaService.prefecture, 'create')
+          .spyOn(prismaService.prefecture, 'upsert')
           .mockResolvedValue(buildPrismaRecord());
 
-        const result = await prefectureRepository.save(
-          buildDomainWithId(''),
-          USER_ID,
-        );
+        const result = await prefectureRepository.save(buildDomain(), USER_ID);
 
+        // 検証: DBのレコードがdomainに変換されて返ること
+        expect(result).toBeInstanceOf(Prefecture);
         expect(result.id).toBe(PREFECTURE_ID);
+        // 検証: upsertの引数
         expect(
-          jest.spyOn(prismaService.prefecture, 'create'),
+          jest.spyOn(prismaService.prefecture, 'upsert'),
         ).toHaveBeenCalledWith({
-          data: {
+          // where: domainが持つid(作成か更新かの判定に使う)
+          where: { id: PREFECTURE_ID },
+          // create: domainで採番したidをそのまま保存する(DBの@default(uuid())は使わない)
+          create: {
+            id: PREFECTURE_ID,
             code: '13',
             name: '東京都',
             kanaName: 'トウキョウト',
@@ -204,45 +209,8 @@ describe('□□□ Prefecture Repository TEST □□□', () => {
             user: { connect: { id: USER_ID } },
             region: { connect: { id: REGION_ID } },
           },
-        });
-        expect(
-          jest.spyOn(prismaService.prefecture, 'update'),
-        ).not.toHaveBeenCalled();
-      });
-
-      it('正常系: 地方なしの場合、regionキー自体を含めないこと', async () => {
-        jest
-          .spyOn(prismaService.prefecture, 'create')
-          .mockResolvedValue(buildPrismaRecord({ regionId: null }));
-
-        await prefectureRepository.save(
-          buildDomainWithId('', { regionId: undefined }),
-          USER_ID,
-        );
-
-        const createSpy = jest.spyOn(prismaService.prefecture, 'create');
-        const args = createSpy.mock.calls[0][0];
-        expect(args.data).not.toHaveProperty('region');
-      });
-    });
-
-    describe('更新(idあり)', () => {
-      it('正常系: updateがidで呼ばれ、地方ありの場合はregionをconnectすること', async () => {
-        jest
-          .spyOn(prismaService.prefecture, 'update')
-          .mockResolvedValue(buildPrismaRecord());
-
-        const result = await prefectureRepository.save(
-          buildDomainWithId(PREFECTURE_ID),
-          USER_ID,
-        );
-
-        expect(result.id).toBe(PREFECTURE_ID);
-        expect(
-          jest.spyOn(prismaService.prefecture, 'update'),
-        ).toHaveBeenCalledWith({
-          where: { id: PREFECTURE_ID },
-          data: {
+          // update: idは識別子なので更新対象に含めない。createdAtも更新しない
+          update: {
             code: '13',
             name: '東京都',
             kanaName: 'トウキョウト',
@@ -253,24 +221,24 @@ describe('□□□ Prefecture Repository TEST □□□', () => {
             region: { connect: { id: REGION_ID } },
           },
         });
-        expect(
-          jest.spyOn(prismaService.prefecture, 'create'),
-        ).not.toHaveBeenCalled();
       });
 
-      it('正常系: 地方なしの場合、regionをdisconnectすること', async () => {
+      it('地方なしの場合、createにはregionキー自体を含めず、updateではregionをdisconnectすること', async () => {
         jest
-          .spyOn(prismaService.prefecture, 'update')
+          .spyOn(prismaService.prefecture, 'upsert')
           .mockResolvedValue(buildPrismaRecord({ regionId: null }));
 
         await prefectureRepository.save(
-          buildDomainWithId(PREFECTURE_ID, { regionId: undefined }),
+          buildDomain({ regionId: undefined }),
           USER_ID,
         );
 
-        const updateSpy = jest.spyOn(prismaService.prefecture, 'update');
-        const args = updateSpy.mock.calls[0][0];
-        expect(args.data.region).toEqual({ disconnect: true });
+        const upsertSpy = jest.spyOn(prismaService.prefecture, 'upsert');
+        const args = upsertSpy.mock.calls[0][0];
+        // create: 新規作成なので、紐づけが無ければregion自体を指定しない
+        expect(args.create).not.toHaveProperty('region');
+        // update: 既存の紐づけを外すためにdisconnectする
+        expect(args.update.region).toEqual({ disconnect: true });
       });
     });
 
@@ -285,11 +253,11 @@ describe('□□□ Prefecture Repository TEST □□□', () => {
           },
         );
         jest
-          .spyOn(prismaService.prefecture, 'create')
+          .spyOn(prismaService.prefecture, 'upsert')
           .mockRejectedValue(mockP2002Error);
 
         await expect(
-          prefectureRepository.save(buildDomainWithId(''), USER_ID),
+          prefectureRepository.save(buildDomain(), USER_ID),
         ).rejects.toThrow(
           new ConflictException('指定された code は既に存在します。'),
         );
@@ -297,11 +265,11 @@ describe('□□□ Prefecture Repository TEST □□□', () => {
 
       it('P2002以外のエラーの場合、元のエラーをそのままスローすること', async () => {
         jest
-          .spyOn(prismaService.prefecture, 'update')
+          .spyOn(prismaService.prefecture, 'upsert')
           .mockRejectedValue(new Error('Database connection failed'));
 
         await expect(
-          prefectureRepository.save(buildDomainWithId(PREFECTURE_ID), USER_ID),
+          prefectureRepository.save(buildDomain(), USER_ID),
         ).rejects.toThrow(new Error('Database connection failed'));
       });
     });

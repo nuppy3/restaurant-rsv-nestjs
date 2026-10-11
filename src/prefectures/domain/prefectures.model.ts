@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import {
   PrefectureAlreadyEditedException,
   PrefectureAlreadyPublishedException,
@@ -12,6 +13,9 @@ import {
  * 地方が未設定の都道府県も存在するため任意項目。
  */
 export interface PrefectureState {
+  // Entityの識別子(同一性はidで決まる)
+  // DBではなくdomain(createNew)で採番するため、保存前から必ず値を持つ(必須項目)
+  readonly id: string;
   readonly code: string;
   readonly name: string;
   readonly kanaName: string;
@@ -28,21 +32,22 @@ export interface PrefectureState {
 /**
  * 【新規作成用】
  * Prefecture domain作成時に必要なプロパティを型として定義
- * 外部から入力される項目のみ（statusや日付は内部で生成するため除外）
+ * 外部から入力される項目のみ（id・statusや日付は内部で生成するため除外）
  */
 export type CreatePrefectureProps = Omit<
   PrefectureState,
-  'status' | 'createdAt' | 'updatedAt'
+  'id' | 'status' | 'createdAt' | 'updatedAt'
 >;
 
 /**
  * 【更新用】
  * Prefecture domain更新時に必要なプロパティを型として定義
- * 日付・status以外は更新対象(任意項目)
+ * id・日付・status以外は更新対象(任意項目)
+ * idはEntityの識別子のため変更不可
  * statusの変更はpublish / unpublish / removeの専用メソッドでのみ行う(Regionとの差分)
  */
 export type UpdatePrefectureProps = Partial<
-  Omit<PrefectureState, 'status' | 'createdAt' | 'updatedAt'>
+  Omit<PrefectureState, 'id' | 'status' | 'createdAt' | 'updatedAt'>
 >;
 
 /**
@@ -55,6 +60,8 @@ export type ReconstitutePrefectureProps = PrefectureState;
  * Prefecture domain
  */
 export class Prefecture {
+  // idは生成後に変わらないためreadonly
+  private readonly _id: string;
   private _code: string;
   private _name: string;
   private _kanaName: string;
@@ -66,6 +73,7 @@ export class Prefecture {
 
   // constructorを private にして外部からの new を禁止する
   private constructor(
+    id: string,
     code: string,
     name: string,
     kanaName: string,
@@ -75,6 +83,7 @@ export class Prefecture {
     createdAt: Date,
     updatedAt: Date,
   ) {
+    this._id = id;
     this._code = code;
     this._name = name;
     this._kanaName = kanaName;
@@ -88,10 +97,13 @@ export class Prefecture {
   /**
    * 新規作成用の静的メソッド（factory method）
    * domain新規作成時のルールを実装
-   * ステータスは強制的に「編集中」、createdAt / updatedAt は作成時刻
+   * idはUUIDを採番、ステータスは強制的に「編集中」、createdAt / updatedAt は作成時刻
    */
   static createNew(props: CreatePrefectureProps): Prefecture {
     return new Prefecture(
+      // idはdomainで採番する(DBの@default(uuid())には頼らない)
+      // → 保存前からidが確定するため、交差型(Prefecture & { id })や空文字のidが不要になる
+      randomUUID(),
       // createdAt,updatedAtはデフォルトでdomain作成時時刻
       // ステータスは強制的に「編集中」= EDITING
       props.code,
@@ -110,6 +122,7 @@ export class Prefecture {
    */
   static reconstitute(props: ReconstitutePrefectureProps): Prefecture {
     return new Prefecture(
+      props.id,
       props.code,
       props.name,
       props.kanaName,
@@ -146,6 +159,7 @@ export class Prefecture {
    */
   toSnapshot(): PrefectureState {
     return {
+      id: this._id,
       code: this._code,
       name: this._name,
       kanaName: this._kanaName,
@@ -366,6 +380,11 @@ export class Prefecture {
    * 内部: _code（ちょっと汚くてもいい、隠れているから）
    * 公開: code（利用者が使いやすい、綺麗な名前）
    */
+  // getterのみ(setterなし)のため、外部からidを書き換えることはできない
+  get id(): string {
+    return this._id;
+  }
+
   get code(): string {
     return this._code;
   }

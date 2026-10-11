@@ -322,7 +322,7 @@ export class PrefecturesController {
    *          objectでもいいが、unknown にしたのは「中身の形は呼び出し側で決めてください」
    *          という意図を表すためで、機能の差はほぼありません。
    *
-   * @param source 変換元。Application Serviceが返すdomain(Prefecture & { id })、
+   * @param source 変換元。Application Serviceが返すdomain(Prefecture。idはgetterで読める)、
    *               またはQueryServiceが返すRead Model。配列を渡した場合は配列で変換する
    * @returns PrefectureResponseDtoの@Expose()項目のみを持つplain object(配列を渡した場合はその配列)。
    *          型はunknownのため、呼び出し側でPrefectureResponseDto(または配列)にasして使う
@@ -364,7 +364,7 @@ export class PrefecturesController {
    *  return this.toResponseDto(readModels); // readModels は配列 → PrefectureResponseDto[]
    *  return this.toResponseDto(domain);     // domain は1件 → PrefectureResponseDto
    *
-   * @param source 変換元。Application Serviceが返すdomain(Prefecture & { id })、
+   * @param source 変換元。Application Serviceが返すdomain(Prefecture。idはgetterで読める)、
    *               またはQueryServiceが返すRead Model。配列を渡した場合は配列で変換する
    * @returns PrefectureResponseDtoの@Expose()項目のみを持つplain object(配列を渡した場合はその配列)。
    *          型はunknownのため、呼び出し側でPrefectureResponseDto(または配列)にasして使う

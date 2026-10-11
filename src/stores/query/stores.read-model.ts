@@ -1,6 +1,11 @@
 import { StoreStatus } from 'generated/prisma';
-import { PrefectureState as Prefecture } from '../../prefectures/domain/prefectures.model';
+import { PrefectureState } from '../../prefectures/domain/prefectures.model';
 import { Weekday } from '../stores.model';
+
+// 店舗に紐づく都道府県情報
+// PrefectureStateからid(都道府県のEntity識別子)を除いた形(今までの店舗のレスポンスの形を維持する)
+// (Storeのフル DDD化(Step1-3)で専用の型に置き換える)
+type Prefecture = Omit<PrefectureState, 'id'>;
 
 /**
  * 店舗情報参照専用モデル(Query(読み取り)専用に設計されたモデル)

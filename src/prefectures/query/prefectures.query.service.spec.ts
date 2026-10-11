@@ -399,32 +399,30 @@ describe('■■■ PrefecturesQueryService test ■■■', () => {
   // ①Repository findByCodeOrFail
   // ※ このメソッドだけはRead Modelではなくdomainを返す(StoresServiceからの参照用)
   describe('findByCodeOrFail', () => {
-    it('正常系: Repositoryに委譲し、domain(ID付き)を返却すること', async () => {
-      // repository mock data 作成: 掲載中の東京都のdomain(id付き)
-      // domainはreconstitute()で復元し、Object.assignでidを付与する(Repositoryが返す形)
-      const domainWithId = Object.assign(
-        Prefecture.reconstitute({
-          code: '13',
-          name: '東京都',
-          kanaName: 'トウキョウト',
-          kanaEn: 'Tokyo-to',
-          status: PrefectureStatus.PUBLISHED,
-          regionId: REGION_ID,
-          createdAt: CREATED_AT,
-          updatedAt: UPDATED_AT,
-        }),
-        { id: '17b54147-b6ed-4d4e-a25f-4b632b0b444e' },
-      );
+    it('正常系: Repositoryに委譲し、domain(idを含む)を返却すること', async () => {
+      // repository mock data 作成: 掲載中の東京都のdomain
+      // domainはreconstitute()で復元する(domain自身がidを持つため、Object.assignでの後付けは不要)
+      const domain = Prefecture.reconstitute({
+        id: '17b54147-b6ed-4d4e-a25f-4b632b0b444e',
+        code: '13',
+        name: '東京都',
+        kanaName: 'トウキョウト',
+        kanaEn: 'Tokyo-to',
+        status: PrefectureStatus.PUBLISHED,
+        regionId: REGION_ID,
+        createdAt: CREATED_AT,
+        updatedAt: UPDATED_AT,
+      });
       jest
         .spyOn(prefectureRepository, 'findByCodeOrFail')
-        .mockResolvedValue(domainWithId);
+        .mockResolvedValue(domain);
 
       // test対象service呼び出し
       const result = await prefecturesQueryService.findByCodeOrFail('13');
 
       // 検証: Repositoryが返したdomainが、そのまま(同じインスタンスで)返却されること
       // (toBe: 中身が同じかではなく「同じオブジェクトか」を検証する)
-      expect(result).toBe(domainWithId);
+      expect(result).toBe(domain);
       // 検証: Repositoryに code '13' で委譲していること
       expect(
         jest.spyOn(prefectureRepository, 'findByCodeOrFail'),

@@ -19,7 +19,7 @@ export class PrefectureRepository implements PrefectureRepositoryPort {
   /**
    * idに紐づく都道府県を取得する。存在しない場合はNotFoundException
    */
-  async findByIdOrFail(id: string): Promise<Prefecture & { id: string }> {
+  async findByIdOrFail(id: string): Promise<Prefecture> {
     const record = await this.prismaService.prefecture.findUnique({
       where: { id },
     });
@@ -36,7 +36,7 @@ export class PrefectureRepository implements PrefectureRepositoryPort {
   /**
    * codeに紐づく都道府県を取得する。存在しない場合はNotFoundException
    */
-  async findByCodeOrFail(code: string): Promise<Prefecture & { id: string }> {
+  async findByCodeOrFail(code: string): Promise<Prefecture> {
     const record = await this.prismaService.prefecture.findUnique({
       where: { code },
     });
@@ -52,24 +52,21 @@ export class PrefectureRepository implements PrefectureRepositoryPort {
 
   /**
    * 都道府県を永続化する
-   * idが空(新規作成)の場合はcreate、それ以外はupdateを行う
-   * (Regionのようにダミーidでupsertせず、意図を明示的に分ける)
+   * DBに同じidが無ければcreate、あればupdateを行う(upsert)
+   *
+   * idはdomain(createNew)で採番済みで、新規作成でも常に値があるため、
+   * 「idが空ならcreate」という判定はできない。そのためupsertでDB側に判定させる。
+   * (Regionのupsertはダミーidを使っていたが、こちらはdomainが採番した本物のUUIDなので問題ない)
    *
    * @throws ConflictException codeが重複している場合(Prisma: P2002)
    */
-  async save(
-    domainWithId: Prefecture & { id: string },
-    userId: string,
-  ): Promise<Prefecture & { id: string }> {
+  async save(prefecture: Prefecture, userId: string): Promise<Prefecture> {
     try {
-      const record = !domainWithId.id
-        ? await this.prismaService.prefecture.create({
-            data: PrefectureMapper.toPrismaCreate(domainWithId, userId),
-          })
-        : await this.prismaService.prefecture.update({
-            where: { id: domainWithId.id },
-            data: PrefectureMapper.toPrismaUpdate(domainWithId, userId),
-          });
+      const record = await this.prismaService.prefecture.upsert({
+        where: { id: prefecture.id },
+        create: PrefectureMapper.toPrismaCreate(prefecture, userId),
+        update: PrefectureMapper.toPrismaUpdate(prefecture, userId),
+      });
 
       return PrefectureMapper.toDomain(record);
     } catch (e: unknown) {

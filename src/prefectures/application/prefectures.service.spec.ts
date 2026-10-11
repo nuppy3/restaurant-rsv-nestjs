@@ -44,43 +44,44 @@ const PREFECTURE_ID = '17b54147-b6ed-4d4e-a25f-4b632b0b444e';
 const REGION_ID = '57a39a4b-921c-48ed-8045-4054be56feee';
 const USER_ID = '00000000-0000-4000-8000-000000000001';
 
+// UUID形式(8-4-4-4-12桁の16進数)の正規表現。createでdomainが採番するidの検証用
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 /**
- * 任意のstatusでPrefecture domain(ID付き)を作成するヘルパー
+ * 任意のstatusでPrefecture domainを作成するヘルパー
  *
- * 基本形は「編集中(editing)・地方(関東)あり・id付きの東京都」。
+ * 基本形は「編集中(editing)・地方(関東)あり・id(PREFECTURE_ID)の東京都」。
  * 引数で一部の項目だけを上書きできる。
- *   例) buildPrefectureWithId()                                     → 編集中の東京都
- *       buildPrefectureWithId({ status: PrefectureStatus.PUBLISHED }) → 掲載中の東京都
- *       buildPrefectureWithId({ regionId: undefined })               → 地方未設定の東京都
+ *   例) buildPrefecture()                                     → 編集中の東京都
+ *       buildPrefecture({ status: PrefectureStatus.PUBLISHED }) → 掲載中の東京都
+ *       buildPrefecture({ regionId: undefined })               → 地方未設定の東京都
  *
  * Repository.findByIdOrFail() が返すデータ(DBから取得した都道府県)の代わりに使う。
  *
  * Repository mock data 作成
- * Region & {id:string} の生成は本物のRegion.reconstitute()を使うのばBP
- * Region は「ドメインモデル」であり、外部依存（DBやAPI）を持たない純粋なロジックのかたまりです。
+ * Prefecture の生成は本物のPrefecture.reconstitute()を使うのがBP
+ * Prefecture は「ドメインモデル」であり、外部依存（DBやAPI）を持たない純粋なロジックのかたまりです。
  * これを Mock にしてしまうと、テストコードが非常に複雑になる割にメリットがありません。
- *
+ * ※ domain自身がidを持つため、reconstituteにidを渡すだけでよい(Object.assignでの後付けは不要)
  */
-const buildPrefectureWithId = (
+const buildPrefecture = (
   overrides: Partial<ReconstitutePrefectureProps> = {},
-): Prefecture & { id: string } =>
-  Object.assign(
-    // reconstitute: DBから取得したデータでdomainを復元するメソッド(statusや日付を指定できる)
-    Prefecture.reconstitute({
-      code: '13',
-      name: '東京都',
-      kanaName: 'トウキョウト',
-      kanaEn: 'Tokyo-to',
-      status: PrefectureStatus.EDITING,
-      regionId: REGION_ID,
-      createdAt: new Date('2025-04-05T10:00:00.000Z'),
-      updatedAt: new Date('2025-04-05T12:30:00.000Z'),
-      // 引数で渡された項目だけ、上の値を上書きする
-      ...overrides,
-    }),
-    // domainにidを付与する(Repositoryが返す形: Prefecture & { id })
-    { id: PREFECTURE_ID },
-  );
+): Prefecture =>
+  // reconstitute: DBから取得したデータでdomainを復元するメソッド(id・statusや日付を指定できる)
+  Prefecture.reconstitute({
+    id: PREFECTURE_ID,
+    code: '13',
+    name: '東京都',
+    kanaName: 'トウキョウト',
+    kanaEn: 'Tokyo-to',
+    status: PrefectureStatus.EDITING,
+    regionId: REGION_ID,
+    createdAt: new Date('2025-04-05T10:00:00.000Z'),
+    updatedAt: new Date('2025-04-05T12:30:00.000Z'),
+    // 引数で渡された項目だけ、上の値を上書きする
+    ...overrides,
+  });
 
 /**
  * RegionsQueryService.findByCodeOrFail の戻り値(地方: 関東)
@@ -117,7 +118,7 @@ describe('■■■ PrefecturesService(Application) test ■■■', () => {
    * Serviceがsaveに「正しい状態のdomain」を渡したかを検証するために使う。
    * (save の「戻り値」ではなく、save に「渡された値」を見ている点に注意)
    */
-  const savedDomain = (): Prefecture & { id: string } =>
+  const savedDomain = (): Prefecture =>
     jest.spyOn(prefectureRepository, 'save').mock.calls[0][0];
 
   // 前処理: テスト全体の前に1回だけ実行(DIのセットアップ)
@@ -168,7 +169,7 @@ describe('■■■ PrefecturesService(Application) test ■■■', () => {
   // create test
   //--------------------------------------
   describe('create', () => {
-    it('正常系: 編集中のdomainがregionId付き・id空文字でsaveに渡されること', async () => {
+    it('正常系: 編集中のdomainがregionId付き・domainで採番したid(UUID)でsaveに渡されること', async () => {
       // servic 引数 (command) 作成
       const command = {
         code: '13',
@@ -235,8 +236,8 @@ describe('■■■ PrefecturesService(Application) test ■■■', () => {
       );
 
       //【検証】saveに渡されたdomainの中身を1項目ずつ確認する
-      // 新規作成なので id は空文字(DBで採番される)
-      expect(domain.id).toBe('');
+      // 新規作成でも id はdomain(createNew)で採番済み(値は毎回変わるので形式で検証する)
+      expect(domain.id).toMatch(UUID_PATTERN);
       // 作成時は必ず編集中
       expect(domain.status).toBe(PrefectureStatus.EDITING);
       expect(domain.code).toBe('13');
@@ -303,7 +304,7 @@ describe('■■■ PrefecturesService(Application) test ■■■', () => {
       // 【準備】更新対象として「編集中の東京都」がDBから取得されるように設定
       jest
         .spyOn(prefectureRepository, 'findByIdOrFail')
-        .mockResolvedValue(buildPrefectureWithId());
+        .mockResolvedValue(buildPrefecture());
 
       // メモ：prefectureRepository, 'save'にmock dataをセットしない
 
@@ -338,7 +339,7 @@ describe('■■■ PrefecturesService(Application) test ■■■', () => {
       // 【準備】更新対象として「地方未設定の東京都」がDBから取得されるように設定
       jest
         .spyOn(prefectureRepository, 'findByIdOrFail')
-        .mockResolvedValue(buildPrefectureWithId({ regionId: undefined }));
+        .mockResolvedValue(buildPrefecture({ regionId: undefined }));
       // 【準備】地方コード '03' を渡されたら、関東を返すように設定
       mockRegionsQueryService.findByCodeOrFail.mockResolvedValue(
         buildRegionWithId(),
@@ -364,7 +365,7 @@ describe('■■■ PrefecturesService(Application) test ■■■', () => {
       jest
         .spyOn(prefectureRepository, 'findByIdOrFail')
         .mockResolvedValue(
-          buildPrefectureWithId({ status: PrefectureStatus.PUBLISHED }),
+          buildPrefecture({ status: PrefectureStatus.PUBLISHED }),
         );
 
       // 【実行・検証】掲載中は更新できないため、domainのupdate()が例外を投げること
@@ -407,7 +408,7 @@ describe('■■■ PrefecturesService(Application) test ■■■', () => {
       // 【準備】対象として「地方あり・編集中の東京都」がDBから取得されるように設定
       jest
         .spyOn(prefectureRepository, 'findByIdOrFail')
-        .mockResolvedValue(buildPrefectureWithId());
+        .mockResolvedValue(buildPrefecture());
 
       // 【実行】掲載中にする
       // ※ resultは、beforeEachで設定した「saveが受け取ったdomainをそのまま返す」動きによって
@@ -430,7 +431,7 @@ describe('■■■ PrefecturesService(Application) test ■■■', () => {
       // 【準備】対象として「地方未設定の東京都」がDBから取得されるように設定
       jest
         .spyOn(prefectureRepository, 'findByIdOrFail')
-        .mockResolvedValue(buildPrefectureWithId({ regionId: undefined }));
+        .mockResolvedValue(buildPrefecture({ regionId: undefined }));
 
       // 【実行・検証】地方が未設定なので、domainのpublish()が例外を投げること
       await expect(
@@ -450,7 +451,7 @@ describe('■■■ PrefecturesService(Application) test ■■■', () => {
       jest
         .spyOn(prefectureRepository, 'findByIdOrFail')
         .mockResolvedValue(
-          buildPrefectureWithId({ status: PrefectureStatus.PUBLISHED }),
+          buildPrefecture({ status: PrefectureStatus.PUBLISHED }),
         );
 
       // 【実行】掲載を取り下げる(resultはsaveが返したdomain。beforeEachの設定を参照)
@@ -466,7 +467,7 @@ describe('■■■ PrefecturesService(Application) test ■■■', () => {
       // 【準備】対象として「編集中の東京都」がDBから取得されるように設定
       jest
         .spyOn(prefectureRepository, 'findByIdOrFail')
-        .mockResolvedValue(buildPrefectureWithId());
+        .mockResolvedValue(buildPrefecture());
 
       // 【実行・検証】すでに編集中なので、domainのunpublish()が例外を投げること
       await expect(
@@ -485,7 +486,7 @@ describe('■■■ PrefecturesService(Application) test ■■■', () => {
       // 【準備】対象として「編集中の東京都」がDBから取得されるように設定
       jest
         .spyOn(prefectureRepository, 'findByIdOrFail')
-        .mockResolvedValue(buildPrefectureWithId());
+        .mockResolvedValue(buildPrefecture());
       // 【準備】店舗チェック(assertDeletable)は例外を投げずに通過するように設定(店舗0件)
       mockPrefecturesDomainService.assertDeletable.mockResolvedValue(undefined);
 
@@ -506,7 +507,7 @@ describe('■■■ PrefecturesService(Application) test ■■■', () => {
       // 【準備】対象として「編集中の東京都」がDBから取得されるように設定
       jest
         .spyOn(prefectureRepository, 'findByIdOrFail')
-        .mockResolvedValue(buildPrefectureWithId());
+        .mockResolvedValue(buildPrefecture());
       // 【準備】店舗チェックで例外が投げられるように設定(店舗あり)
       mockPrefecturesDomainService.assertDeletable.mockRejectedValue(
         new PrefectureHasStoresException(PREFECTURE_ID),

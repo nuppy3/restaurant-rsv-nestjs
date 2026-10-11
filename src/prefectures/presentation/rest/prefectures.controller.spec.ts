@@ -299,7 +299,7 @@ describe('■■■ PrefecturesController(presentation/rest) TEST ■■■', ()
   describe('create', () => {
     it('正常系: DTOがCommandに詰め替えられ、ユーザーIDとともにServiceに渡されること', async () => {
       // service mock data 作成: create(作成された編集中の東京都)
-      mockPrefecturesService.create.mockResolvedValue(buildMockDomainWithId());
+      mockPrefecturesService.create.mockResolvedValue(buildMockDomain());
 
       // test対象controller呼び出し(リクエストボディ: CreatePrefectureDto)
       const dto = {
@@ -343,7 +343,7 @@ describe('■■■ PrefecturesController(presentation/rest) TEST ■■■', ()
     it('正常系: 指定した項目だけがCommandに入り(未指定はundefined)、Serviceに渡されること', async () => {
       // service mock data 作成: update(name が「東京」に更新された domain)
       mockPrefecturesService.update.mockResolvedValue(
-        buildMockDomainWithId({ name: '東京' }),
+        buildMockDomain({ name: '東京' }),
       );
 
       // test対象controller呼び出し(リクエストボディ: name だけを指定)
@@ -403,7 +403,7 @@ describe('■■■ PrefecturesController(presentation/rest) TEST ■■■', ()
     it('正常系(publish): idとユーザーIDだけがServiceに渡され、掲載中のレスポンスが返却されること', async () => {
       // service mock data 作成: publish(掲載中になった domain)
       mockPrefecturesService.publish.mockResolvedValue(
-        buildMockDomainWithId({ status: PrefectureStatus.PUBLISHED }),
+        buildMockDomain({ status: PrefectureStatus.PUBLISHED }),
       );
 
       // test対象controller呼び出し
@@ -447,9 +447,7 @@ describe('■■■ PrefecturesController(presentation/rest) TEST ■■■', ()
 
     it('正常系(unpublish): idとユーザーIDだけがServiceに渡され、編集中のレスポンスが返却されること', async () => {
       // service mock data 作成: unpublish(編集中に戻った domain)
-      mockPrefecturesService.unpublish.mockResolvedValue(
-        buildMockDomainWithId(),
-      );
+      mockPrefecturesService.unpublish.mockResolvedValue(buildMockDomain());
 
       // test対象controller呼び出し
       const result = await prefecturesController.unpublish(
@@ -472,7 +470,7 @@ describe('■■■ PrefecturesController(presentation/rest) TEST ■■■', ()
     it('正常系(remove): idとユーザーIDだけがServiceに渡され、停止中のレスポンスが返却されること', async () => {
       // service mock data 作成: remove(停止中になった domain。論理削除のためdomainが返る)
       mockPrefecturesService.remove.mockResolvedValue(
-        buildMockDomainWithId({ status: PrefectureStatus.SUSPENDED }),
+        buildMockDomain({ status: PrefectureStatus.SUSPENDED }),
       );
 
       // test対象controller呼び出し
@@ -545,30 +543,28 @@ const buildMockDetailReadModel = (
  * domain(Application Serviceの戻り値)を作成するヘルパー
  * ベースは東京都
  *
- * create / update / publish / unpublish / remove が返す domain(Prefecture & { id }) の代わりに使う。
+ * create / update / publish / unpublish / remove が返す domain(Prefecture) の代わりに使う。
  * 基本形は「編集中(editing)・地方(関東)ありの東京都」。引数で一部の項目だけを上書きできる。
- * domainはreconstitute()で復元し、Object.assignでidを付与する(Serviceが返す形)
+ * domainはreconstitute()で復元する(domain自身がidを持つため、Object.assignでの後付けは不要)
  */
-const buildMockDomainWithId = (
+const buildMockDomain = (
   overrides: Partial<ReconstitutePrefectureProps> = {},
-): Prefecture & { id: string } =>
-  Object.assign(
-    Prefecture.reconstitute({
-      code: '13',
-      name: '東京都',
-      kanaName: 'トウキョウト',
-      kanaEn: 'Tokyo-to',
-      status: PrefectureStatus.EDITING,
-      regionId: REGION_ID,
-      createdAt: CREATED_AT,
-      updatedAt: UPDATED_AT,
-      ...overrides,
-    }),
-    { id: PREFECTURE_ID },
-  );
+): Prefecture =>
+  Prefecture.reconstitute({
+    id: PREFECTURE_ID,
+    code: '13',
+    name: '東京都',
+    kanaName: 'トウキョウト',
+    kanaEn: 'Tokyo-to',
+    status: PrefectureStatus.EDITING,
+    regionId: REGION_ID,
+    createdAt: CREATED_AT,
+    updatedAt: UPDATED_AT,
+    ...overrides,
+  });
 
 // レスポンスの期待値(domain: 編集中の東京都)
-// buildDomainWithId() の domain を Controller が PrefectureResponseDto に変換した結果
+// buildMockDomain() の domain を Controller が PrefectureResponseDto に変換した結果
 // ・statusLabel は ResponseDto の getter(status → 表示用の文言)から付与される
 // ・createdAt / updatedAt は ResponseDto に @Expose() が無いので返らない
 // ・domain は地方名を持たないため regionName は無い
