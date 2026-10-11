@@ -26,18 +26,19 @@ export class PrefecturesService {
    *
    * @param command 都道府県の作成内容(地方はコードで指定し、ここでIDに解決する)
    * @param userId 操作ユーザーのID(作成者として保存する)
-   * @returns 作成した都道府県のdomain(DBで採番されたidを含む)
+   * @returns 作成した都道府県のdomain(idはdomainで採番済み)
    * @throws NotFoundException regionCodeに該当する地方が存在しない場合
    */
   async create(
     command: CreatePrefectureCommand,
     userId: string,
-  ): Promise<Prefecture & { id: string }> {
+  ): Promise<Prefecture> {
     // 地方コード → 地方ID に解決
     const regionId = await this.resolveRegionId(command.regionCode);
 
     // domain生成（command → domain)
-    const domain = PrefectureFactory.from({
+    // idはdomain(createNew)でUUIDが採番されるため、ここでidを用意する必要はない
+    const prefecture = PrefectureFactory.from({
       code: command.code,
       name: command.name,
       kanaName: command.kanaName,
@@ -45,10 +46,8 @@ export class PrefecturesService {
       regionId,
     });
 
-    // idが空のdomainをsaveすると新規作成になる
-    // TODO: 暫定ロジック: save()の引数が Region & {id:string} なので暫定で''をセット
-    const domainWithId = Object.assign(domain, { id: '' });
-    return this.prefectureRepository.save(domainWithId, userId);
+    // 永続化（DBに同じidが無いため新規作成になる) → domain(toDomain)
+    return this.prefectureRepository.save(prefecture, userId);
   }
 
   /**
@@ -57,22 +56,22 @@ export class PrefecturesService {
    * @param id 更新対象の都道府県ID
    * @param command 更新内容(未指定(undefined)の項目は更新しない)
    * @param userId 操作ユーザーのID(更新者として保存する)
-   * @returns 更新後の都道府県のdomain(id付き)
+   * @returns 更新後の都道府県のdomain
    * @throws NotFoundException 都道府県、またはregionCodeに該当する地方が存在しない場合
    */
   async update(
     id: string,
     command: UpdatePrefectureCommand,
     userId: string,
-  ): Promise<Prefecture & { id: string }> {
+  ): Promise<Prefecture> {
     // Prefecture取得(DB) → domain (reconstitute)
-    const prefectureWithId = await this.prefectureRepository.findByIdOrFail(id);
+    const prefecture = await this.prefectureRepository.findByIdOrFail(id);
     // 地方コード → 地方ID に解決
     const regionId = await this.resolveRegionId(command.regionCode);
 
     // command → Domain更新対象のプロパティ
     // domain更新(dtoの項目で更新): ドメインルール（例：特定のステータスなら名前は変えられない等）をチェック
-    prefectureWithId.update({
+    prefecture.update({
       code: command.code,
       name: command.name,
       kanaName: command.kanaName,
@@ -81,7 +80,7 @@ export class PrefecturesService {
     } satisfies UpdatePrefectureProps);
 
     // 永続化（DB更新) → domain(toDomain)
-    return this.prefectureRepository.save(prefectureWithId, userId);
+    return this.prefectureRepository.save(prefecture, userId);
   }
 
   /**
@@ -92,20 +91,17 @@ export class PrefecturesService {
    *
    * @param id 掲載対象の都道府県ID
    * @param userId 操作ユーザーのID(更新者として保存する)
-   * @returns 掲載中(published)になった都道府県のdomain(id付き)
+   * @returns 掲載中(published)になった都道府県のdomain
    */
-  async publish(
-    id: string,
-    userId: string,
-  ): Promise<Prefecture & { id: string }> {
+  async publish(id: string, userId: string): Promise<Prefecture> {
     // 都道府県情報取得
-    const prefectureWithId = await this.prefectureRepository.findByIdOrFail(id);
+    const prefecture = await this.prefectureRepository.findByIdOrFail(id);
 
     // domain 更新（ドメインルール実行）
-    prefectureWithId.publish();
+    prefecture.publish();
 
     // 永続化: ステータス更新 → prisma → domain
-    return this.prefectureRepository.save(prefectureWithId, userId);
+    return this.prefectureRepository.save(prefecture, userId);
   }
 
   /**
@@ -116,20 +112,17 @@ export class PrefecturesService {
    *
    * @param id 掲載を取り下げる都道府県ID
    * @param userId 操作ユーザーのID(更新者として保存する)
-   * @returns 編集中(editing)に戻った都道府県のdomain(id付き)
+   * @returns 編集中(editing)に戻った都道府県のdomain
    */
-  async unpublish(
-    id: string,
-    userId: string,
-  ): Promise<Prefecture & { id: string }> {
+  async unpublish(id: string, userId: string): Promise<Prefecture> {
     // 都道府県情報取得
-    const prefectureWithId = await this.prefectureRepository.findByIdOrFail(id);
+    const prefecture = await this.prefectureRepository.findByIdOrFail(id);
 
     // domain 更新（ドメインルール実行）
-    prefectureWithId.unpublish();
+    prefecture.unpublish();
 
     // 永続化: ステータス更新 → prisma → domain
-    return this.prefectureRepository.save(prefectureWithId, userId);
+    return this.prefectureRepository.save(prefecture, userId);
   }
 
   /**
@@ -141,23 +134,20 @@ export class PrefecturesService {
    *
    * @param id 削除対象の都道府県ID
    * @param userId 操作ユーザーのID(更新者として保存する)
-   * @returns 停止中(suspended)になった都道府県のdomain(id付き)
+   * @returns 停止中(suspended)になった都道府県のdomain
    */
-  async remove(
-    id: string,
-    userId: string,
-  ): Promise<Prefecture & { id: string }> {
+  async remove(id: string, userId: string): Promise<Prefecture> {
     // 都道府県情報取得
-    const prefectureWithId = await this.prefectureRepository.findByIdOrFail(id);
+    const prefecture = await this.prefectureRepository.findByIdOrFail(id);
 
     // 削除可能か判定：他のドメインに依存する判定など
     await this.prefecturesDomainService.assertDeletable(id);
 
     // domain 削除（ドメインルール実行：domain内部ロジックのみ）
-    prefectureWithId.remove();
+    prefecture.remove();
 
     // 永続化: Region情報削除(ソフトデリート) → prisma → domain
-    return this.prefectureRepository.save(prefectureWithId, userId);
+    return this.prefectureRepository.save(prefecture, userId);
   }
 
   /**

@@ -185,9 +185,9 @@ export class PrefecturesQueryService {
    * 存在しない場合はNotFoundException
    *
    * @param code 都道府県コード
-   * @returns 都道府県情報
+   * @returns 都道府県情報(domain。idはdomain自身が持つ)
    */
-  async findByCodeOrFail(code: string): Promise<Prefecture & { id: string }> {
+  async findByCodeOrFail(code: string): Promise<Prefecture> {
     return this.prefectureRepository.findByCodeOrFail(code);
   }
 

@@ -294,7 +294,7 @@ export class StoresService {
     } = createStoreDto;
 
     // prefectureCodeの妥当性チェック
-    let prefecture: (Prefecture & { id: string }) | undefined = undefined;
+    let prefecture: Prefecture | undefined = undefined;
     if (prefectureCode) {
       try {
         prefecture =

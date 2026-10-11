@@ -38,6 +38,8 @@ describe('□□□ Prefecture Domain Test □□□', () => {
         regionId: REGION_ID,
       } satisfies CreatePrefectureProps);
 
+      // 検証: idがdomainでUUID形式で採番されていること(値は毎回変わるので形式で検証する)
+      expect(prefecture.id).toMatch(UUID_PATTERN);
       // 検証: 渡した項目がそのまま設定されていること
       expect(prefecture.code).toBe('13');
       expect(prefecture.name).toBe('東京都');
@@ -67,6 +69,21 @@ describe('□□□ Prefecture Domain Test □□□', () => {
 
       // 検証: 地方未設定(undefined)で生成されること
       expect(prefecture.regionId).toBeUndefined();
+    });
+
+    it('正常系: createNewを呼ぶたびに異なるidが採番されること', () => {
+      // test対象メソッド呼び出し(同じ内容で2回作成する)
+      const props: CreatePrefectureProps = {
+        code: '13',
+        name: '東京都',
+        kanaName: 'トウキョウト',
+        kanaEn: 'Tokyo-to',
+      };
+      const first = Prefecture.createNew(props);
+      const second = Prefecture.createNew(props);
+
+      // 検証: 内容が同じでもidは別物であること(Entityの同一性は内容ではなくidで決まる)
+      expect(first.id).not.toBe(second.id);
     });
   });
 
@@ -114,7 +131,9 @@ describe('□□□ Prefecture Domain Test □□□', () => {
 
       // 検証: 復元時に渡した値が、そのままスナップショットに入っていること
       // (satisfies PrefectureState: 期待値の形が PrefectureState と一致しているかもコンパイル時にチェック)
+      // (idもDBの値がそのまま復元されること = createNewのように新しく採番されないこと)
       expect(snapshot).toEqual({
+        id: PREFECTURE_ID,
         code: '13',
         name: '東京都',
         kanaName: 'トウキョウト',
@@ -171,6 +190,8 @@ describe('□□□ Prefecture Domain Test □□□', () => {
       expect(prefecture.kanaName).toBe('オオサカフ');
       expect(prefecture.kanaEn).toBe('Osaka-fu');
       expect(prefecture.regionId).toBe(newRegionId);
+      // idは更新対象外(Entityの識別子)なので変わらない
+      expect(prefecture.id).toBe(PREFECTURE_ID);
       // statusは変わらない
       expect(prefecture.status).toBe(PrefectureStatus.EDITING);
       // 検証: updatedAt が更新時刻(実行直前の時刻以降)になっていること
@@ -362,7 +383,11 @@ describe('□□□ Prefecture Domain Test □□□', () => {
 //         describe() の中の各 it() の処理は「このファイル全体の読み込みが終わった後」に実行されるため、
 //         その時点では下の const はすべて初期化済み(TDZ: 宣言前アクセスのエラーにはならない)。
 //         ※ ただし describe() の直下(it() の外)で使うと、読み込み中に実行されるためエラーになる
+const PREFECTURE_ID = '7c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f';
 const REGION_ID = '57a39a4b-921c-48ed-8045-4054be56feee';
+// UUID形式(8-4-4-4-12桁の16進数)の正規表現。createNewで採番されるidの検証用
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const CREATED_AT = new Date('2025-04-05T10:00:00.000Z');
 const UPDATED_AT = new Date('2025-04-05T12:30:00.000Z');
 
@@ -379,6 +404,7 @@ const buildPrefecture = (
   overrides: Partial<ReconstitutePrefectureProps> = {},
 ): Prefecture =>
   Prefecture.reconstitute({
+    id: PREFECTURE_ID,
     code: '13',
     name: '東京都',
     kanaName: 'トウキョウト',

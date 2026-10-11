@@ -14,7 +14,7 @@ import {
   Min,
 } from 'class-validator';
 import { PaginatedResult } from 'src/common/interfaces/paginated-result.interface';
-import { type PrefectureState as Prefecture } from '../../prefectures/domain/prefectures.model';
+import { type PrefectureState } from '../../prefectures/domain/prefectures.model';
 import {
   SortBy,
   SortOrder,
@@ -25,6 +25,11 @@ import {
   WEEKDAYS,
   type Weekday,
 } from '../stores.model';
+
+// 店舗レスポンスに含める都道府県情報
+// PrefectureStateからid(都道府県のEntity識別子)を除いた形。店舗のレスポンスには都道府県のidを含めない
+// (Storeのフル DDD化(Step1-3)で専用の型に置き換える)
+type Prefecture = Omit<PrefectureState, 'id'>;
 
 /**
  * CreateStoreDto

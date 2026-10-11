@@ -21,6 +21,8 @@ export class PrefectureMapper {
     const snapshot = domain.toSnapshot();
 
     return {
+      // idはdomainで採番済みの値をそのまま使う(DBの@default(uuid())は使わない)
+      id: snapshot.id,
       code: snapshot.code,
       name: snapshot.name,
       kanaName: snapshot.kanaName,
@@ -38,6 +40,7 @@ export class PrefectureMapper {
   /**
    * domain → Prisma更新用入力
    * domainの状態をそのままDBに反映するため、地方が未設定(undefined)の場合はdisconnectする
+   * idは更新対象外(where句で使う識別子)のため含めない
    */
   static toPrismaUpdate(
     domain: Prefecture,
@@ -60,11 +63,13 @@ export class PrefectureMapper {
   }
 
   /**
-   * Prismaレコード → domain(ID付き)
+   * Prismaレコード → domain
    * DBのnullはdomainではundefinedとして扱う
+   * idもreconstituteで復元する(domain自身がidを持つため、Object.assignで後付けしない)
    */
-  static toDomain(record: PrismaPrefecture): Prefecture & { id: string } {
-    const domain = Prefecture.reconstitute({
+  static toDomain(record: PrismaPrefecture): Prefecture {
+    return Prefecture.reconstitute({
+      id: record.id,
       code: record.code,
       name: record.name,
       kanaName: record.kanaName,
@@ -74,7 +79,5 @@ export class PrefectureMapper {
       createdAt: record.createdAt,
       updatedAt: record.updatedAt,
     } satisfies ReconstitutePrefectureProps);
-
-    return Object.assign(domain, { id: record.id });
   }
 }

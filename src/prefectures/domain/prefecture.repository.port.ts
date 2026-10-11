@@ -9,14 +9,17 @@ export const PREFECTURE_REPOSITORY_PORT = Symbol('PREFECTURE_REPOSITORY_PORT');
 /**
  * Prefecture Repository Port
  * Domain層が定義し、Infrastructure層(Prisma)が実装する
+ *
+ * Prefecture domain 自身がidを持つため、交差型(Prefecture & { id: string })は使わない
  */
 export interface PrefectureRepositoryPort {
-  findByIdOrFail(id: string): Promise<Prefecture & { id: string }>;
+  findByIdOrFail(id: string): Promise<Prefecture>;
 
-  findByCodeOrFail(code: string): Promise<Prefecture & { id: string }>;
+  findByCodeOrFail(code: string): Promise<Prefecture>;
 
-  save(
-    domainWithId: Prefecture & { id: string },
-    userId: string,
-  ): Promise<Prefecture & { id: string }>;
+  /**
+   * 都道府県を永続化する(新規作成・更新のどちらもこのメソッド)
+   * idはdomainで採番済みのため、DBに同じidが無ければ作成、あれば更新する
+   */
+  save(prefecture: Prefecture, userId: string): Promise<Prefecture>;
 }
