@@ -1,3 +1,5 @@
+import { randomUUID } from 'crypto';
+
 /**
  * Cities domain 全属性(完全な状態)
  *
@@ -98,8 +100,28 @@ export class City {
     this._updatedAt = updatedAt;
   }
 
-  createNew(): City {
-    return new City();
+  /**
+   * 新しいCityを作成する（ファクトリメソッド）
+   *
+   * @param props City domain作成に必要なプロパティ
+   * @returns City domain
+   */
+  createNew(props: CreateCityProps): City {
+    return new City(
+      // idはdomainで採番する(DBの@default(uuid())には頼らない)
+      randomUUID(),
+      // createdAt,updatedAtはデフォルトでdomain作成時時刻
+      // ステータスは強制的に「編集中」= EDITING
+      props.code,
+      props.name,
+      props.kanaName,
+      props.slug,
+      CityStatus.EDITING,
+      props.sortOrder,
+      props.prefectureId,
+      new Date(),
+      new Date(),
+    );
   }
 }
 
