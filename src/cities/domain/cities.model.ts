@@ -22,6 +22,32 @@ export interface CityState {
 }
 
 /**
+ * 【新規作成用プロパティ】
+ * City domain作成時に必要なプロパティを型として定義
+ * 外部から入力される項目のみ(id、statusや日付は内部で生成するため除外)
+ */
+export type CreateCityProps = Omit<
+  CityState,
+  'id' | 'status' | 'createdAt' | 'updatedAt'
+>;
+
+/**
+ * 【更新用プロパティ】
+ * City domain更新時に必要なプロパティを型として定義
+ * id・日付・status以外は更新対象(任意項目).idはEntityの識別子のため変更不可
+ * statusの変更はpublish / unpublish / removeの専用メソッドでのみ行う(Regionとの差分)
+ */
+export type UpdateCityProps = Partial<
+  Omit<CityState, 'id' | 'status' | 'createdAt' | 'updatedAt'>
+>;
+
+/**
+ * 【再構成用】
+ * DB等から戻ってくる全項目
+ */
+export type ReconstituteCityProps = CityState;
+
+/**
  * City（都市）domain
  *
  * ### Domain Behavior(ドメインの振る舞い)
@@ -70,6 +96,10 @@ export class City {
     this._prefectureId = prefectureId;
     this._createdAt = createdAt;
     this._updatedAt = updatedAt;
+  }
+
+  createNew(): City {
+    return new City();
   }
 }
 
