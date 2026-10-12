@@ -106,7 +106,7 @@ export class City {
    * @param props City domain作成に必要なプロパティ
    * @returns City domain
    */
-  createNew(props: CreateCityProps): City {
+  static createNew(props: CreateCityProps): City {
     return new City(
       // idはdomainで採番する(DBの@default(uuid())には頼らない)
       randomUUID(),
@@ -121,6 +121,38 @@ export class City {
       props.prefectureId,
       new Date(),
       new Date(),
+    );
+  }
+
+  /**
+   * Cityの再構築（DB等から再構築（すでに日付がある場合））
+   *
+   * @param props City domain再構築用項目(DB全項目)
+   * @returns City domain
+   */
+  static reconstitute(props: ReconstituteCityProps): City {
+    return new City(
+      props.id,
+      props.code,
+      props.name,
+      props.kanaName,
+      props.slug,
+      props.status,
+      props.sortOrder,
+      props.prefectureId,
+      props.createdAt,
+      props.updatedAt,
+      // memo: 以下のようにスプレッド構文はNG（理由がちょっと深いのでmemoしておく
+      // ...props,
+      //
+      // ・オブジェクトの複製（これはOK）
+      // const newObj = { ...props };
+      // これは「新しいオブジェクトの中に、プロパティをコピーする」という意味なので通ります。
+      //
+      // ・関数の引数への展開（これがNG）
+      // new Region(...props);
+      // これは「props の中身を、1番目の引数、2番目の引数…として順番に渡す」という意味になります。
+      // オブジェクトには「1番目」という概念がないため、エラーになります。
     );
   }
 }
