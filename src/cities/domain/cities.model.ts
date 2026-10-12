@@ -55,7 +55,7 @@ export type ReconstituteCityProps = CityState;
  * ### Domain Behavior(ドメインの振る舞い)
  * - createNew(): 新しいCityを作成する（ファクトリメソッド）
  * - reconstitute(): Cityの再構築（DB等から再構築)
- * - toSnapshot(): Cityのスナップショットに変換
+ * - toSnapshot(): Cityのプロパティをスナップショットに変換
  * - update(): Cityの情報を更新する
  * - publish(): Cityを公開する
  * - unpublish(): Cityを非公開(編集中)にする
@@ -154,6 +154,35 @@ export class City {
       // これは「props の中身を、1番目の引数、2番目の引数…として順番に渡す」という意味になります。
       // オブジェクトには「1番目」という概念がないため、エラーになります。
     );
+  }
+
+  /**
+   * City domain のプロパティをスナップショット(CityState)に変換する。
+   * Date型は外部での書き換えが内部に波及しないよう防御的コピーを返す。
+   *
+   * ドメインエンティティの内部状態（プライベート変数）を、CityState インターフェースの形に
+   * 綺麗にコピーして出力するだけのシンプルな関数。
+   *
+   * ポイントは、外部に渡したデータが勝手に書き換えられても、エンティティ内部の状態（オリジナル）が
+   * 汚染されないように、安全にディープコピー（またはインスタンスの複製）を行うことです。
+   *
+   */
+  toSnapshot(): CityState {
+    return {
+      id: this._id,
+      code: this._code,
+      name: this._name,
+      kanaName: this._kanaName,
+      slug: this._slug,
+      status: this._status,
+      sortOrder: this._sortOrder,
+      prefectureId: this._prefectureId,
+      // ⚠️ Date型などの参照型オブジェクトは、
+      // 外部で書き換えられると内部まで変わってしまう（参照透過性の破壊）ため、
+      // 必ず new Date() で新しいインスタンスにしてコピー（防御的コピー）を返します。
+      createdAt: new Date(this._createdAt),
+      updatedAt: new Date(this._updatedAt),
+    } satisfies CityState;
   }
 }
 
