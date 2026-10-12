@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { CityAlreadyPublishedException } from './errors/cities.exceptions';
 
 /**
  * Cities domain 全属性(完全な状態)
@@ -183,6 +184,73 @@ export class City {
       createdAt: new Date(this._createdAt),
       updatedAt: new Date(this._updatedAt),
     } satisfies CityState;
+  }
+
+  /**
+   * domain update: domainの更新
+   * updateロジックを集約（serviceなどに漏らさない)
+   * 掲載中(published)の場合は更新不可。undefinedの項目は更新しない。
+   *
+   * 当該メソッドは、すでに存在する「特定のデータ（自分自身の状態）」を持つオブジェクトに対して
+   * 命令を下すメソッドなので、staticではなく、インスタンスメソッド。
+   *
+   * ・updateしてもいいかの判定
+   *  例：
+   *  - ステータスが掲載中の場合は更新不可(エラーを投げる）
+   *  - 紐づく都道府県が存在する場合は更新しない
+   *
+   * @param props 更新対象のプロパティ
+   */
+  update(props: UpdateCityProps): void {
+    // ドメインルール： 更新可能か判定(ガード節)
+    this.validateCanUpdate();
+
+    // プロパティ更新
+    //
+    // props.codeがnullの場合は、そのままnullでupdateさせる仕様のためundefinedのみ判定
+    // ちなみに、リクエストパラメータでcodeの項目が無ければundefinedで渡される。
+    // JSONリクエストボディで項目自体を省略した場合（例: { "code": "JP" } のように name を
+    // 書かない場合）：
+    // class-transformer（ValidationPipeのtransform: true時）がDTOインスタンスを
+    // 作成する際に、存在しないプロパティは undefined として扱われる。
+    if (props.code !== undefined) {
+      this._code = props.code;
+    }
+    if (props.name !== undefined) {
+      this._name = props.name;
+    }
+    if (props.kanaName !== undefined) {
+      this._kanaName = props.kanaName;
+    }
+    if (props.slug !== undefined) {
+      this._slug = props.slug;
+    }
+    if (props.sortOrder !== undefined) {
+      this._sortOrder = props.sortOrder;
+    }
+    if (props.prefectureId !== undefined) {
+      this._prefectureId = props.prefectureId;
+    }
+
+    this._updatedAt = new Date();
+  }
+
+  /**
+   * Cityを公開する
+   */
+  publish(): void {}
+
+  /**
+   * 更新が可能かどうかのビジネスルールを判定
+   * 判定NGの場合はエラーをスロー(ガード節)
+   *
+   * 外部から「削除ボタンを表示するかどうか」の判定にも使えるよう public にするのもアリです
+   */
+  private validateCanUpdate(): void {
+    // ルール①：ステータスが掲載中の場合
+    if (this._status === CityStatus.PUBLISHED) {
+      throw new CityAlreadyPublishedException(this._name);
+    }
   }
 }
 
