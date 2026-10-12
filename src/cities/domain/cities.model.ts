@@ -21,6 +21,18 @@ export interface CityState {
   readonly prefectureId?: string;
 }
 
+/**
+ * City（都市）domain
+ *
+ * ### Domain Behavior(ドメインの振る舞い)
+ * - createNew(): 新しいCityを作成する（ファクトリメソッド）
+ * - reconstitute(): Cityの再構築（DB等から再構築)
+ * - toSnapshot(): Cityのスナップショットに変換
+ * - update(): Cityの情報を更新する
+ * - publish(): Cityを公開する
+ * - unpublish(): Cityを非公開(編集中)にする
+ * - suspend(): Cityを停止中にする
+ */
 export class City {
   private readonly _id: string;
   private _code: string;
