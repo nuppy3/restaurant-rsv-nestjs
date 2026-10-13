@@ -34,7 +34,7 @@ export class CityAlreadyEditedException extends DomainException {
 }
 
 /**
- * 都市が編集中(editing)のため操作できない場合の例外
+ * 都市が停止中(suspended)のため操作できない場合の例外
  */
 export class CityAlreadySuspendedException extends DomainException {
   // 🗒override修飾子が無くてもオーバーライドは可能であるが、付与するとTypeScript が
@@ -44,6 +44,6 @@ export class CityAlreadySuspendedException extends DomainException {
 
   constructor(cityName: string) {
     super(`この都市は停止中のため、更新できません。都市： ${cityName}`);
-    this.name = 'CityAlreadyEditedException';
+    this.name = 'CityAlreadySuspendedException';
   }
 }

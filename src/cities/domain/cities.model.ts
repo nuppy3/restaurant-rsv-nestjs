@@ -42,7 +42,7 @@ export type CreateCityProps = Omit<
  * 【更新用プロパティ】
  * City domain更新時に必要なプロパティを型として定義
  * id・日付・status以外は更新対象(任意項目).idはEntityの識別子のため変更不可
- * statusの変更はpublish / unpublish / removeの専用メソッドでのみ行う(Regionとの差分)
+ * statusの変更はpublish / unpublish / suspendの専用メソッドでのみ行う(Regionとの差分)
  */
 export type UpdateCityProps = Partial<
   Omit<CityState, 'id' | 'status' | 'createdAt' | 'updatedAt'>
@@ -242,7 +242,6 @@ export class City {
   /**
    * publish(): domainを掲載中に更新
    * publishロジックを集約（serviceなどに漏らさない)
-   * 都市が未設定の場合は掲載できない
    *
    * 当該メソッドは、すでに存在する「特定のデータ（自分自身の状態）」を持つオブジェクトに対して
    * 命令を下すメソッドなので、staticではなく、インスタンスメソッド。
@@ -272,7 +271,6 @@ export class City {
    * ・編集中にしてもいいかの判定
    *  例：
    *  - すでに掲載中状態の場合は掲載中に更新しない(エラーを投げる）
-   *  - 紐づく地区が存在する場合は削除しない
    * ・ステータス更新（＝status: 編集中/ updateAtの更新)
    */
   unpublish(): void {
@@ -288,7 +286,7 @@ export class City {
    * domain delete(ソフトデリート)
    * deleteロジックを集約（serviceなどに漏らさない)
    * 論理削除: 利用停止(suspended)にする
-   * 店舗が紐づいているかの判定は集約をまたぐため CityDomainService で行う
+   * 地区が紐づいているかの判定は集約をまたぐため CitiesDomainService で行う
    *
    * 当該メソッドは、すでに存在する「特定のデータ（自分自身の状態）」を持つオブジェクトに対して
    * 命令を下すメソッドなので、staticではなく、インスタンスメソッド。
@@ -296,12 +294,12 @@ export class City {
    * ・デリートしてもいいかの判定
    *  例：
    *  - すでに利用停止状態の場合は削除しない(エラーを投げる）
-   *  - 紐づく都市が存在する場合は削除しない
+   *  - 紐づく地区が存在する場合は削除しない → Domain Serviceにて実施
    * ・ソフトデリート（＝status: 停止/ updateAtの更新)
    */
   suspend(): void {
     // 停止中に更新可能か判定(ガード節): ドメインルール
-    this.validateCanSuspended();
+    this.validateCanSuspend();
 
     // ステータス更新と更新日付セット
     this._status = CityStatus.SUSPENDED;
@@ -357,7 +355,7 @@ export class City {
    *
    * 外部から「削除ボタンを表示するかどうか」の判定にも使えるよう public にするのもアリです
    */
-  private validateCanSuspended(): void {
+  private validateCanSuspend(): void {
     // ルール①：既に停止中の場合
     if (this._status === CityStatus.SUSPENDED) {
       throw new CityAlreadySuspendedException(this._name);
