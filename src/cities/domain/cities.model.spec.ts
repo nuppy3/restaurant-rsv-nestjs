@@ -2,12 +2,20 @@
 // domainはDBやPrisma、NestJSのDIに依存しない純粋なクラスなので、モックもDIも不要。
 // domainを作って、メソッドを呼んで、状態(プロパティ)や例外を検証するだけでテストできる。
 
+import { CityFactory } from './cities.factory';
 import {
   City,
+  CityState,
   CityStatus,
   CreateCityProps,
   ReconstituteCityProps,
+  UpdateCityProps,
 } from './cities.model';
+import {
+  CityAlreadyEditedException,
+  CityAlreadyPublishedException,
+  CityAlreadySuspendedException,
+} from './errors/cities.exceptions';
 
 // ※ テストで使う共通データ(prefectureID など)とヘルパー(buildCity)はファイル末尾に定義している
 describe('■■■ City Domain Test ■■■', () => {
@@ -84,291 +92,300 @@ describe('■■■ City Domain Test ■■■', () => {
 
   // -----------------------------
   // CityFactory.from() test
+  //
+  // ※serviceのUTで本物のFactoryを呼ぶので、CityFactory個別のUTはしなくてもいいが
+  //  念ため実施。
   // -----------------------------
   // Factory: Application層がdomainを新規作成するときの入口。中でcreateNew()を呼んでいる
-  // describe('------ CityFactory.from() test ------', () => {
-  //   it('正常系: createNewと同様に編集中(editing)のdomainが生成されること', () => {
-  //     // test対象メソッド呼び出し
-  //     const city = CityFactory.from({
-  //       code: '27',
-  //       name: '大阪府',
-  //       kanaName: 'オオサカフ',
-  //       kanaEn: 'Osaka-fu',
-  //       regionId: REGION_ID,
-  //     });
+  describe('------ CityFactory.from() test ------', () => {
+    it('正常系: createNewと同様に編集中(editing)のdomainが生成されること', () => {
+      // test対象メソッド呼び出し
+      const city = CityFactory.from({
+        code: '27',
+        name: '大阪',
+        kanaName: 'オオサカ',
+        slug: 'Osaka',
+        sortOrder: 1,
+        prefectureId: PREFECTURE_ID,
+      } satisfies CreateCityProps);
 
-  //     // 検証: City(domain)のインスタンスが返ること
-  //     expect(city).toBeInstanceOf(City);
-  //     // 検証: 渡した項目がそのまま設定され、statusは編集中(createNewと同じ)であること
-  //     expect(city.code).toBe('27');
-  //     expect(city.name).toBe('大阪府');
-  //     expect(city.kanaName).toBe('オオサカフ');
-  //     expect(city.kanaEn).toBe('Osaka-fu');
-  //     expect(city.regionId).toBe(REGION_ID);
-  //     expect(city.status).toBe(CityStatus.EDITING);
-  //   });
-  // });
+      // 検証: City(domain)のインスタンスが返ること
+      expect(city).toBeInstanceOf(City);
+      // 検証: 渡した項目がそのまま設定され、statusは編集中(createNewと同じ)であること
+      expect(city.code).toBe('27');
+      expect(city.name).toBe('大阪');
+      expect(city.kanaName).toBe('オオサカ');
+      expect(city.slug).toBe('Osaka');
+      expect(city.prefectureId).toBe(PREFECTURE_ID);
+      expect(city.status).toBe(CityStatus.EDITING);
+    });
+  });
 
-  // // -----------------------------
-  // // reconstitute() / toSnapshot() test
-  // // -----------------------------
-  // // reconstitute: DBから取得したデータでdomainを復元する(statusや日付もそのまま使う)
-  // // toSnapshot:   domainの状態を CityState(読み取り専用のデータ)として取り出す
-  // describe('------ reconstitute() / toSnapshot() test ------', () => {
-  //   it('正常系: 再構築したdomainのプロパティがCityStateの形で返却されること', () => {
-  //     // domain 作成: 掲載中の東京都(reconstitute で復元)
-  //     const city = buildCity({
-  //       status: CityStatus.PUBLISHED,
-  //     });
+  // -----------------------------
+  // reconstitute() と toSnapshot() を合わせた test
+  // -----------------------------
+  // reconstitute: DBから取得したデータでdomainを復元する(statusや日付もそのまま使う)
+  // toSnapshot:   domainの状態を CityState(読み取り専用のデータ)として取り出す
+  describe('------ reconstitute() / toSnapshot() test ------', () => {
+    it('正常系: 再構築したdomainのプロパティがCityStateの形で返却されること', () => {
+      // domain 作成: 掲載中の東京(reconstitute() で復元)
+      const city = buildCity({
+        status: CityStatus.PUBLISHED,
+      });
 
-  //     // test対象メソッド呼び出し
-  //     const snapshot = City.toSnapshot();
+      // test対象メソッド呼び出し
+      const snapshot = city.toSnapshot();
 
-  //     // 検証: 復元時に渡した値が、そのままスナップショットに入っていること
-  //     // (satisfies CityState: 期待値の形が CityState と一致しているかもコンパイル時にチェック)
-  //     // (idもDBの値がそのまま復元されること = createNewのように新しく採番されないこと)
-  //     expect(snapshot).toEqual({
-  //       id: City_ID,
-  //       code: '13',
-  //       name: '東京都',
-  //       kanaName: 'トウキョウト',
-  //       kanaEn: 'Tokyo-to',
-  //       status: 'published',
-  //       regionId: REGION_ID,
-  //       createdAt: CREATED_AT,
-  //       updatedAt: UPDATED_AT,
-  //     } satisfies CityState);
-  //   });
+      // 検証: 復元時に渡した値が、そのままスナップショットに入っていること
+      // (satisfies CityState: 期待値の形が CityState と一致しているかもコンパイル時にチェック)
+      // (idもDBの値がそのまま復元されること = createNewのように新しく採番されないこと)
+      expect(snapshot).toEqual({
+        id: City_ID,
+        code: '13',
+        name: '東京',
+        kanaName: 'トウキョウ',
+        slug: 'tokyo',
+        status: CityStatus.PUBLISHED,
+        sortOrder: 1,
+        prefectureId: PREFECTURE_ID,
+        createdAt: CREATED_AT,
+        updatedAt: UPDATED_AT,
+      } satisfies CityState);
+    });
 
-  //   it('正常系: スナップショットの日付を書き換えても、domain内部の日付は変わらないこと(防御的コピー)', () => {
-  //     // domain 作成: 編集中の東京都
-  //     const city = buildCity();
+    it('正常系: スナップショットの日付を書き換えても、domain内部の日付は変わらないこと(防御的コピー)', () => {
+      // domain 作成: 編集中の東京
+      const city = buildCity();
 
-  //     // test対象メソッド呼び出し → 取り出したスナップショットの日付を書き換える
-  //     // (Date は参照型なので、domain内部の Date をそのまま返していると、外から内部の値を書き換えられてしまう)
-  //     const snapshot = City.toSnapshot();
-  //     snapshot.createdAt.setFullYear(2000);
-  //     snapshot.updatedAt.setFullYear(2000);
+      // test対象メソッド呼び出し → 取り出したスナップショットの日付を書き換える
+      // (Date は参照型なので、domain内部の Date をそのまま返していると、外から内部の値を書き換えられてしまう)
+      const snapshot = city.toSnapshot();
+      snapshot.createdAt.setFullYear(2000);
+      snapshot.updatedAt.setFullYear(2000);
 
-  //     // 検証: domain内部の日付は元のままであること
-  //     // (toSnapshot が new Date(...) で新しいインスタンスを作って返している = 防御的コピー)
-  //     expect(city.createdAt).toEqual(CREATED_AT);
-  //     expect(city.updatedAt).toEqual(UPDATED_AT);
-  //   });
-  // });
+      // 検証: domain内部の日付は元のままであること
+      // (toSnapshot が new Date(...) で新しいインスタンスを作って返している = 防御的コピー)
+      expect(city.createdAt).toEqual(CREATED_AT);
+      expect(city.updatedAt).toEqual(UPDATED_AT);
+    });
+  });
 
-  // // -----------------------------
-  // // update() test
-  // // -----------------------------
-  // // update: 基本情報の更新。掲載中(published)は更新不可。statusは更新対象外
-  // describe('------ update() test ------', () => {
-  //   it('正常系: 編集中の場合、全項目が更新され、updatedAtが更新されること', () => {
-  //     // domain 作成: 編集中の東京都
-  //     const city = buildCity();
-  //     // 更新後の都道府県ID(別の都道府県)
-  //     const newRegionId = '0e78a64a-537e-4807-8234-5ed4252eb554';
-  //     // 実行直前の時刻を記録しておく(updatedAt の検証用)
-  //     const before = new Date();
+  // -----------------------------
+  // update() test
+  // -----------------------------
+  // update: 基本情報の更新。掲載中(published)は更新不可。statusは更新対象外
+  describe('------ update() test ------', () => {
+    it('正常系: 編集中の場合、全項目が更新され、updatedAtが更新されること', () => {
+      // 引数作成
+      const props = {
+        code: '27',
+        name: '大阪',
+        kanaName: 'オオサカ',
+        slug: 'osaka',
+        sortOrder: 10,
+        prefectureId: '0e78a64a-537e-4807-8234-5ed4252eb554',
+      } satisfies UpdateCityProps;
 
-  //     // test対象メソッド呼び出し(全項目を更新)
-  //     city.update({
-  //       code: '27',
-  //       name: '大阪府',
-  //       kanaName: 'オオサカフ',
-  //       kanaEn: 'Osaka-fu',
-  //       regionId: newRegionId,
-  //     });
+      // domain 作成: 編集中の東京
+      const city = buildCity();
 
-  //     // 検証: 全項目が更新されていること
-  //     expect(city.code).toBe('27');
-  //     expect(city.name).toBe('大阪府');
-  //     expect(city.kanaName).toBe('オオサカフ');
-  //     expect(city.kanaEn).toBe('Osaka-fu');
-  //     expect(city.regionId).toBe(newRegionId);
-  //     // idは更新対象外(Entityの識別子)なので変わらない
-  //     expect(city.id).toBe(City_ID);
-  //     // statusは変わらない
-  //     expect(city.status).toBe(CityStatus.EDITING);
-  //     // 検証: updatedAt が更新時刻(実行直前の時刻以降)になっていること
-  //     expect(city.updatedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
-  //     // createdAtは変わらない
-  //     expect(city.createdAt).toEqual(CREATED_AT);
-  //   });
+      // 実行直前の時刻を記録しておく(updatedAt の検証用)
+      const before = new Date();
 
-  //   it('正常系: 停止中(suspended)の場合も更新できること', () => {
-  //     // domain 作成: 停止中の東京都
-  //     const city = buildCity({
-  //       status: CityStatus.SUSPENDED,
-  //     });
+      // test対象メソッド呼び出し(全項目を更新)
+      city.update(props);
 
-  //     // test対象メソッド呼び出し
-  //     city.update({ name: '東京' });
+      // 検証: 全項目が更新されていること
+      expect(city.code).toBe('27');
+      expect(city.name).toBe('大阪');
+      expect(city.kanaName).toBe('オオサカ');
+      expect(city.slug).toBe('osaka');
+      expect(city.prefectureId).toBe('0e78a64a-537e-4807-8234-5ed4252eb554');
+      // idは更新対象外(Entityの識別子)なので変わらない
+      expect(city.id).toBe(City_ID);
+      // statusは変わらない
+      expect(city.status).toBe(CityStatus.EDITING);
+      // 検証: updatedAt が更新時刻(実行直前の時刻以降)になっていること
+      expect(city.updatedAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
+      // createdAtは変わらない
+      expect(city.createdAt).toEqual(CREATED_AT);
+    });
 
-  //     // 検証: 更新でき、statusは停止中のままであること(更新不可なのは掲載中だけ)
-  //     expect(city.name).toBe('東京');
-  //     expect(city.status).toBe(CityStatus.SUSPENDED);
-  //   });
+    it('正常系: 停止中(suspended)の場合も更新できること', () => {
+      // domain 作成: 停止中の東京都
+      const city = buildCity({
+        status: CityStatus.SUSPENDED,
+      });
 
-  //   it('正常系: undefinedの項目は更新されず、元の値が維持されること', () => {
-  //     // domain 作成: 編集中の東京都
-  //     const city = buildCity();
+      // test対象メソッド呼び出し
+      city.update({ name: '東京' });
 
-  //     // test対象メソッド呼び出し(name だけを指定。他の項目は undefined)
-  //     city.update({ name: '東京' });
+      // 検証: 更新でき、statusは停止中のままであること(更新不可なのは掲載中だけ)
+      expect(city.name).toBe('東京');
+      expect(city.status).toBe(CityStatus.SUSPENDED);
+    });
 
-  //     // 検証: name だけが更新され、指定していない項目は元の値のままであること
-  //     expect(city.name).toBe('東京');
-  //     expect(city.code).toBe('13');
-  //     expect(city.kanaName).toBe('トウキョウト');
-  //     expect(city.kanaEn).toBe('Tokyo-to');
-  //     expect(city.regionId).toBe(REGION_ID);
-  //   });
+    it('正常系: undefinedの項目は更新されず、元の値が維持されること', () => {
+      // domain 作成: 編集中の東京
+      const city = buildCity();
 
-  //   it('異常系: 掲載中(published)の場合、CityAlreadyPublishedExceptionをスローすること', () => {
-  //     // domain 作成: 掲載中の東京都
-  //     const city = buildCity({
-  //       status: CityStatus.PUBLISHED,
-  //     });
+      // test対象メソッド呼び出し(name だけを指定。他の項目は undefined)
+      city.update({ name: '東京都市' });
 
-  //     // test対象メソッド呼び出し、結果検証
-  //     // ・expect() には「実行せずに関数ごと」渡す(() => ...)。
-  //     //   city.update() と直接書くと、expect に渡す前に例外が発生してテストが失敗してしまう
-  //     // ・toThrow(new Xxx(...)) で、例外の型とメッセージを一度に検証する
-  //     expect(() => city.update({ name: '東京' })).toThrow(
-  //       new CityAlreadyPublishedException('東京都'),
-  //     );
-  //     // 更新されていないこと(nameもupdatedAtも元のまま)
-  //     expect(city.name).toBe('東京都');
-  //     expect(city.updatedAt).toEqual(UPDATED_AT);
-  //   });
-  // });
+      // 検証: name だけが更新され、指定していない項目は元の値のままであること
+      expect(city.name).toBe('東京都市');
+      expect(city.code).toBe('13');
+      expect(city.kanaName).toBe('トウキョウ');
+      expect(city.slug).toBe('tokyo');
+      expect(city.status).toBe(CityStatus.EDITING);
+      expect(city.prefectureId).toBe(PREFECTURE_ID);
+    });
 
-  // // -----------------------------
-  // // publish() test
-  // // -----------------------------
-  // // publish: 掲載中(published)にする。すでに掲載中、または都道府県が未設定の場合は不可
-  // describe('------ publish() test ------', () => {
-  //   // it.each: 同じテストを、配列の値ごとに繰り返し実行する
-  //   // (テスト名の %s に値が入る → 「editing の場合…」「suspended の場合…」の2件のテストになる)
-  //   // ここでは「掲載中にできる遷移元のstatus」を並べている
-  //   it.each([CityStatus.EDITING, CityStatus.SUSPENDED])(
-  //     '正常系: %s の場合、掲載中(published)になり、updatedAtが更新されること',
-  //     (status) => {
-  //       // domain 作成: 遷移元のstatus(editing / suspended)の東京都
-  //       const city = buildCity({ status });
-  //       // 実行直前の時刻を記録しておく(updatedAt の検証用)
-  //       const before = new Date();
+    it('異常系: 掲載中(published)の場合、CityAlreadyPublishedExceptionをスローすること', () => {
+      // domain 作成: 掲載中の東京都
+      const city = buildCity({
+        status: CityStatus.PUBLISHED,
+      });
 
-  //       // test対象メソッド呼び出し
-  //       city.publish();
+      // test対象メソッド呼び出し、結果検証
+      // ・expect() には「実行せずに関数ごと」渡す(() => ...)。
+      //   city.update() と直接書くと、expect に渡す前に例外が発生してテストが失敗してしまう
+      // ・toThrow(new Xxx(...)) で、例外の型とメッセージを一度に検証する
+      expect(() => city.update({ name: '大阪' })).toThrow(
+        new CityAlreadyPublishedException('東京'),
+      );
+      // 更新されていないこと(nameもupdatedAtも元のまま)
+      expect(city.name).toBe('東京');
+      expect(city.updatedAt).toEqual(UPDATED_AT);
+    });
+  });
 
-  //       // 検証: 掲載中になり、updatedAt が更新されていること
-  //       expect(city.status).toBe(CityStatus.PUBLISHED);
-  //       expect(city.updatedAt.getTime()).toBeGreaterThanOrEqual(
-  //         before.getTime(),
-  //       );
-  //     },
-  //   );
+  // -----------------------------
+  // publish() test
+  // -----------------------------
+  // publish: 掲載中(published)にする。すでに掲載中、または都道府県が未設定の場合は不可
+  describe('------ publish() test ------', () => {
+    // it.each: 同じテストを、配列の値ごとに繰り返し実行する
+    // (テスト名の %s に値が入る → 「editing の場合…」「suspended の場合…」の2件のテストになる)
+    // ここでは「掲載中にできる遷移元のstatus」を並べている
+    it.each([CityStatus.EDITING, CityStatus.SUSPENDED])(
+      '正常系: %s の場合、掲載中(published)になり、updatedAtが更新されること',
+      (status) => {
+        // domain 作成: 遷移元のstatus(editing / suspended)の東京都
+        const city = buildCity({ status });
+        // 実行直前の時刻を記録しておく(updatedAt の検証用)
+        const before = new Date();
 
-  //   it('異常系: すでに掲載中(published)の場合、CityAlreadyPublishedExceptionをスローすること', () => {
-  //     // domain 作成: 掲載中の東京都
-  //     const city = buildCity({
-  //       status: CityStatus.PUBLISHED,
-  //     });
+        // test対象メソッド呼び出し
+        city.publish();
 
-  //     // test対象メソッド呼び出し、結果検証(二重に掲載中にはできない)
-  //     expect(() => city.publish()).toThrow(
-  //       new CityAlreadyPublishedException('東京都'),
-  //     );
-  //   });
+        // 検証: 掲載中になり、updatedAt が更新されていること
+        expect(city.status).toBe(CityStatus.PUBLISHED);
+        expect(city.updatedAt.getTime()).toBeGreaterThanOrEqual(
+          before.getTime(),
+        );
+      },
+    );
 
-  //   it('異常系: 都道府県が未設定の場合、CityRegionNotAssignedExceptionをスローし、statusが変わらないこと', () => {
-  //     // domain 作成: 都道府県未設定・編集中の東京都
-  //     const city = buildCity({ regionId: undefined });
+    it('異常系: すでに掲載中(published)の場合、CityAlreadyPublishedExceptionをスローすること', () => {
+      // domain 作成: 掲載中の東京都
+      const city = buildCity({
+        status: CityStatus.PUBLISHED,
+      });
 
-  //     // test対象メソッド呼び出し、結果検証(都道府県が未設定のままでは掲載中にできない)
-  //     expect(() => city.publish()).toThrow(
-  //       new CityRegionNotAssignedException('東京都'),
-  //     );
-  //     // 検証: 例外が発生したので、statusは編集中のままであること
-  //     expect(city.status).toBe(CityStatus.EDITING);
-  //   });
-  // });
+      // test対象メソッド呼び出し、結果検証(二重に掲載中にはできない)
+      expect(() => city.publish()).toThrow(
+        new CityAlreadyPublishedException('東京'),
+      );
+    });
 
-  // // -----------------------------
-  // // unpublish() test
-  // // -----------------------------
-  // // unpublish: 掲載を取り下げて編集中(editing)に戻す。すでに編集中の場合は不可
-  // describe('------ unpublish() test ------', () => {
-  //   // 「編集中に戻せる遷移元のstatus」を並べて、それぞれでテストする(it.each)
-  //   it.each([CityStatus.PUBLISHED, CityStatus.SUSPENDED])(
-  //     '正常系: %s の場合、編集中(editing)になり、updatedAtが更新されること',
-  //     (status) => {
-  //       // domain 作成: 遷移元のstatus(published / suspended)の東京都
-  //       const city = buildCity({ status });
-  //       // 実行直前の時刻を記録しておく(updatedAt の検証用)
-  //       const before = new Date();
+    // it('異常系: 都道府県が未設定の場合、CityRegionNotAssignedExceptionをスローし、statusが変わらないこと', () => {
+    //   // domain 作成: 都道府県未設定・編集中の東京都
+    //   const city = buildCity({ prefectureId: undefined });
 
-  //       // test対象メソッド呼び出し
-  //       city.unpublish();
+    //   // test対象メソッド呼び出し、結果検証(都道府県が未設定のままでは掲載中にできない)
+    //   expect(() => city.publish()).toThrow(
+    //     new CityRegionNotAssignedException('東京'),
+    //   );
+    //   // 検証: 例外が発生したので、statusは編集中のままであること
+    //   expect(city.status).toBe(CityStatus.EDITING);
+    // });
+  });
 
-  //       // 検証: 編集中になり、updatedAt が更新されていること
-  //       expect(city.status).toBe(CityStatus.EDITING);
-  //       expect(city.updatedAt.getTime()).toBeGreaterThanOrEqual(
-  //         before.getTime(),
-  //       );
-  //     },
-  //   );
+  // -----------------------------
+  // unpublish() test
+  // -----------------------------
+  // unpublish: 掲載を取り下げて編集中(editing)に戻す。すでに編集中の場合は不可
+  describe('------ unpublish() test ------', () => {
+    // 「編集中に戻せる遷移元のstatus」を並べて、それぞれでテストする(it.each)
+    it.each([CityStatus.PUBLISHED, CityStatus.SUSPENDED])(
+      '正常系: %s の場合、編集中(editing)になり、updatedAtが更新されること',
+      (status) => {
+        // domain 作成: 遷移元のstatus(published / suspended)の東京都
+        const city = buildCity({ status });
+        // 実行直前の時刻を記録しておく(updatedAt の検証用)
+        const before = new Date();
 
-  //   it('異常系: すでに編集中(editing)の場合、CityAlreadyEditedExceptionをスローすること', () => {
-  //     // domain 作成: 編集中の東京都
-  //     const city = buildCity();
+        // test対象メソッド呼び出し
+        city.unpublish();
 
-  //     // test対象メソッド呼び出し、結果検証(二重に編集中にはできない)
-  //     expect(() => city.unpublish()).toThrow(
-  //       new CityAlreadyEditedException('東京都'),
-  //     );
-  //   });
-  // });
+        // 検証: 編集中になり、updatedAt が更新されていること
+        expect(city.status).toBe(CityStatus.EDITING);
+        expect(city.updatedAt.getTime()).toBeGreaterThanOrEqual(
+          before.getTime(),
+        );
+      },
+    );
 
-  // // -----------------------------
-  // // remove() test
-  // // -----------------------------
-  // // remove: 論理削除。停止中(suspended)にする。すでに停止中の場合は不可
-  // // ※ 店舗が紐づいているかのチェックは他集約(Store)をまたぐため、DomainService(assertDeletable)の担当
-  // describe('------ remove() test ------', () => {
-  //   // 「停止中にできる遷移元のstatus」を並べて、それぞれでテストする(it.each)
-  //   it.each([CityStatus.EDITING, CityStatus.PUBLISHED])(
-  //     '正常系: %s の場合、停止中(suspended)になり、updatedAtが更新されること',
-  //     (status) => {
-  //       // domain 作成: 遷移元のstatus(editing / published)の東京都
-  //       const city = buildCity({ status });
-  //       // 実行直前の時刻を記録しておく(updatedAt の検証用)
-  //       const before = new Date();
+    it('異常系: すでに編集中(editing)の場合、CityAlreadyEditedExceptionをスローすること', () => {
+      // domain 作成: 編集中の東京都
+      const city = buildCity();
 
-  //       // test対象メソッド呼び出し
-  //       city.remove();
+      // test対象メソッド呼び出し、結果検証(二重に編集中にはできない)
+      expect(() => city.unpublish()).toThrow(
+        new CityAlreadyEditedException('東京'),
+      );
+    });
+  });
 
-  //       // 検証: 停止中になり、updatedAt が更新されていること
-  //       expect(city.status).toBe(CityStatus.SUSPENDED);
-  //       expect(city.updatedAt.getTime()).toBeGreaterThanOrEqual(
-  //         before.getTime(),
-  //       );
-  //     },
-  //   );
+  // -----------------------------
+  // remove() test
+  // -----------------------------
+  // remove: 論理削除。停止中(suspended)にする。すでに停止中の場合は不可
+  // ※ 店舗が紐づいているかのチェックは他集約(Store)をまたぐため、DomainService(assertDeletable)の担当
+  describe('------ remove() test ------', () => {
+    // 「停止中にできる遷移元のstatus」を並べて、それぞれでテストする(it.each)
+    it.each([CityStatus.EDITING, CityStatus.PUBLISHED])(
+      '正常系: %s の場合、停止中(suspended)になり、updatedAtが更新されること',
+      (status) => {
+        // domain 作成: 遷移元のstatus(editing / published)の東京都
+        const city = buildCity({ status });
+        // 実行直前の時刻を記録しておく(updatedAt の検証用)
+        const before = new Date();
 
-  //   it('異常系: すでに停止中(suspended)の場合、CityAlreadySuspendedExceptionをスローすること', () => {
-  //     // domain 作成: 停止中の東京都
-  //     const city = buildCity({
-  //       status: CityStatus.SUSPENDED,
-  //     });
+        // test対象メソッド呼び出し
+        city.suspend();
 
-  //     // test対象メソッド呼び出し、結果検証(二重に停止中にはできない)
-  //     expect(() => city.remove()).toThrow(
-  //       new CityAlreadySuspendedException('東京都'),
-  //     );
-  //   });
-  // });
+        // 検証: 停止中になり、updatedAt が更新されていること
+        expect(city.status).toBe(CityStatus.SUSPENDED);
+        expect(city.updatedAt.getTime()).toBeGreaterThanOrEqual(
+          before.getTime(),
+        );
+      },
+    );
+
+    it('異常系: すでに停止中(suspended)の場合、CityAlreadySuspendedExceptionをスローすること', () => {
+      // domain 作成: 停止中の東京都
+      const city = buildCity({
+        status: CityStatus.SUSPENDED,
+      });
+
+      // test対象メソッド呼び出し、結果検証(二重に停止中にはできない)
+      expect(() => city.suspend()).toThrow(
+        new CityAlreadySuspendedException('東京'),
+      );
+    });
+  });
 });
 
 // テストデータ: 都道府県(関東)に紐づく東京都
@@ -409,4 +426,4 @@ const buildCity = (overrides: Partial<ReconstituteCityProps> = {}): City =>
     updatedAt: UPDATED_AT,
     // 引数で渡された項目だけ、上の値を上書きする
     ...overrides,
-  });
+  } satisfies ReconstituteCityProps);
