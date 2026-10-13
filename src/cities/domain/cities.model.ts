@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto';
 import {
   CityAlreadyEditedException,
   CityAlreadyPublishedException,
+  CityAlreadySuspendedException,
 } from './errors/cities.exceptions';
 
 /**
@@ -284,6 +285,30 @@ export class City {
   }
 
   /**
+   * domain delete(ソフトデリート)
+   * deleteロジックを集約（serviceなどに漏らさない)
+   * 論理削除: 利用停止(suspended)にする
+   * 店舗が紐づいているかの判定は集約をまたぐため CityDomainService で行う
+   *
+   * 当該メソッドは、すでに存在する「特定のデータ（自分自身の状態）」を持つオブジェクトに対して
+   * 命令を下すメソッドなので、staticではなく、インスタンスメソッド。
+   *
+   * ・デリートしてもいいかの判定
+   *  例：
+   *  - すでに利用停止状態の場合は削除しない(エラーを投げる）
+   *  - 紐づく都市が存在する場合は削除しない
+   * ・ソフトデリート（＝status: 停止/ updateAtの更新)
+   */
+  suspend(): void {
+    // 停止中に更新可能か判定(ガード節): ドメインルール
+    this.validateCanSuspended();
+
+    // ステータス更新と更新日付セット
+    this._status = CityStatus.SUSPENDED;
+    this._updatedAt = new Date();
+  }
+
+  /**
    * 更新が可能かどうかのビジネスルールを判定
    * 判定NGの場合はエラーをスロー(ガード節)
    *
@@ -317,13 +342,26 @@ export class City {
    */
   private validateCanUnpublish(): void {
     // ルール①：ステータスが編集中の場合
-    if ((this._status = CityStatus.EDITING)) {
+    if (this._status === CityStatus.EDITING) {
       throw new CityAlreadyEditedException(this._name);
     }
 
     // ルール② 例： 紐づく地区が存在するか(prefectureIdが存在するか）
     // ルール③ 例：ビジネスルール（例: 現在キャンペーン実施中は削除不可）
     // ルール④ 例：北陸地方（code:05）の場合、特定の期間中は削除不可
+  }
+
+  /**
+   * 削除（利用停止）が可能かどうかのビジネスルールを判定
+   * 判定NGの場合はエラーをスロー(ガード節)
+   *
+   * 外部から「削除ボタンを表示するかどうか」の判定にも使えるよう public にするのもアリです
+   */
+  private validateCanSuspended(): void {
+    // ルール①：既に停止中の場合
+    if (this._status === CityStatus.SUSPENDED) {
+      throw new CityAlreadySuspendedException(this._name);
+    }
   }
 }
 
