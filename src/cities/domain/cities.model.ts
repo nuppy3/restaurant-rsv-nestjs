@@ -363,6 +363,49 @@ export class City {
       throw new CityAlreadySuspendedException(this._name);
     }
   }
+
+  /**
+   * Getter 定義
+   * コンストラクタの引数名（内部変数名）に'_'(アンダースコア)をつけて手を加え、
+   * 外部に見せる名前（Getter）を綺麗な 変数名（code、name、、） に保つのが一般的。
+   *
+   * なぜ _（アンダースコア）がよく使われるのか？
+   * 多くのエンジニアが private readonly _code: string と書く理由は、
+   * **「外部に公開するプロパティ名（Getter名）を、一番自然な code という名前にしたいから」**です。
+   * 内部: _code（ちょっと汚くてもいい、隠れているから）
+   * 公開: code（利用者が使いやすい、綺麗な名前）
+   */
+  // getterのみ(setterなし)のため、外部からidを書き換えることはできない
+  get id(): string {
+    return this._id;
+  }
+  get code(): string {
+    return this._code;
+  }
+  get name(): string {
+    return this._name;
+  }
+  get kanaName(): string {
+    return this._kanaName;
+  }
+  get slug(): string {
+    return this._slug;
+  }
+  get status(): CityStatus {
+    return this._status;
+  }
+  get sortOrder(): number {
+    return this._sortOrder;
+  }
+  get createdAt(): Date {
+    return this._createdAt;
+  }
+  get updatedAt(): Date {
+    return this._updatedAt;
+  }
+  get prefectureId(): string | undefined {
+    return this._prefectureId;
+  }
 }
 
 // modern enumパターン（union)
