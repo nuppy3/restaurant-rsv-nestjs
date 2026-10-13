@@ -17,3 +17,18 @@ export class CityAlreadyPublishedException extends DomainException {
     this.name = 'CityAlreadyPublishedException';
   }
 }
+
+/**
+ * 都市が編集中(editing)のため操作できない場合の例外
+ */
+export class CityAlreadyEditedException extends DomainException {
+  // 🗒override修飾子が無くてもオーバーライドは可能であるが、付与するとTypeScript が
+  // 「親クラスに本当にその名前があるか」をチェックしてくれる
+  override readonly status: number = HttpStatus.CONFLICT;
+  override readonly errorCode: string = 'CITY_ALREADY_EDITED';
+
+  constructor(cityName: string) {
+    super(`この都市は編集中のため、更新できません。都市： ${cityName}`);
+    this.name = 'CityAlreadyEditedException';
+  }
+}

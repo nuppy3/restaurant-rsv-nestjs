@@ -1,5 +1,8 @@
 import { randomUUID } from 'crypto';
-import { CityAlreadyPublishedException } from './errors/cities.exceptions';
+import {
+  CityAlreadyEditedException,
+  CityAlreadyPublishedException,
+} from './errors/cities.exceptions';
 
 /**
  * Cities domain 全属性(完全な状態)
@@ -197,7 +200,7 @@ export class City {
    * ・updateしてもいいかの判定
    *  例：
    *  - ステータスが掲載中の場合は更新不可(エラーを投げる）
-   *  - 紐づく都道府県が存在する場合は更新しない
+   * ・各プロパティ(基本情報)の更新（＝各プロパティ / updateAtの更新)
    *
    * @param props 更新対象のプロパティ
    */
@@ -236,9 +239,49 @@ export class City {
   }
 
   /**
-   * Cityを公開する
+   * publish(): domainを掲載中に更新
+   * publishロジックを集約（serviceなどに漏らさない)
+   * 都市が未設定の場合は掲載できない
+   *
+   * 当該メソッドは、すでに存在する「特定のデータ（自分自身の状態）」を持つオブジェクトに対して
+   * 命令を下すメソッドなので、staticではなく、インスタンスメソッド。
+   *
+   * ・掲載中にしてもいいかの判定
+   *  例：
+   *  - すでに掲載中状態の場合は掲載中に更新しない(エラーを投げる）
+   * ・ステータス更新（＝status: 掲載中/ updateAtの更新)
    */
-  publish(): void {}
+  publish(): void {
+    // 掲載中に更新可能か判定(ガード節): ドメインルール
+    this.validateCanPublish();
+
+    // ステータス更新と更新日付セット
+    this._status = CityStatus.PUBLISHED;
+    this._updatedAt = new Date();
+  }
+
+  /**
+   * unpublish(): domainを編集中に更新
+   * unpublishロジックを集約（serviceなどに漏らさない)
+   * 掲載を取り下げて編集中(editing)に戻す
+   *
+   * 当該メソッドは、すでに存在する「特定のデータ（自分自身の状態）」を持つオブジェクトに対して
+   * 命令を下すメソッドなので、staticではなく、インスタンスメソッド。
+   *
+   * ・編集中にしてもいいかの判定
+   *  例：
+   *  - すでに掲載中状態の場合は掲載中に更新しない(エラーを投げる）
+   *  - 紐づく地区が存在する場合は削除しない
+   * ・ステータス更新（＝status: 編集中/ updateAtの更新)
+   */
+  unpublish(): void {
+    // 掲載中に更新可能か判定(ガード節): ドメインルール
+    this.validateCanUnpublish();
+
+    // ステータス更新と更新日付セット
+    this._status = CityStatus.EDITING;
+    this._updatedAt = new Date();
+  }
 
   /**
    * 更新が可能かどうかのビジネスルールを判定
@@ -251,6 +294,36 @@ export class City {
     if (this._status === CityStatus.PUBLISHED) {
       throw new CityAlreadyPublishedException(this._name);
     }
+  }
+
+  /**
+   * 掲載中に更新可能かどうかのビジネスルールを判定
+   * 判定NGの場合はエラーをスロー(ガード節)
+   */
+  private validateCanPublish(): void {
+    // ルール①：ステータスが掲載中の場合
+    if (this._status === CityStatus.PUBLISHED) {
+      throw new CityAlreadyPublishedException(this._name);
+    }
+
+    // ルール② 例： 紐づく地区が存在するか(prefectureIdが存在するか）
+    // ルール③ 例：ビジネスルール（例: 現在キャンペーン実施中は削除不可）
+    // ルール④ 例：北陸地方（code:05）の場合、特定の期間中は削除不可
+  }
+
+  /**
+   * 編集中に更新可能かどうかのビジネスルールを判定
+   * 判定NGの場合はエラーをスロー(ガード節)
+   */
+  private validateCanUnpublish(): void {
+    // ルール①：ステータスが編集中の場合
+    if ((this._status = CityStatus.EDITING)) {
+      throw new CityAlreadyEditedException(this._name);
+    }
+
+    // ルール② 例： 紐づく地区が存在するか(prefectureIdが存在するか）
+    // ルール③ 例：ビジネスルール（例: 現在キャンペーン実施中は削除不可）
+    // ルール④ 例：北陸地方（code:05）の場合、特定の期間中は削除不可
   }
 }
 
