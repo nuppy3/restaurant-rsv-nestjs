@@ -6,6 +6,7 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER } from '@nestjs/core';
 import { join } from 'path';
 import { AuthModule } from './auth/auth.module';
+import { CitiesModule } from './cities/cities.module';
 import { DomainExceptionFilter } from './common/presentation/filters/domain-exception.filter';
 import { PrefecturesModule } from './prefectures/prefectures.module';
 import { RegionsModule } from './regions/regions.module';
@@ -38,6 +39,7 @@ import { StoresModule } from './stores/stores.module';
     StoresModule,
     PrefecturesModule,
     RegionsModule,
+    CitiesModule,
   ],
   // コントローラー
   controllers: [],
