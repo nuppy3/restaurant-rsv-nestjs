@@ -32,3 +32,15 @@ export class DistrictAreadyEditedException extends DomainException {
     this.name = 'DistrictAreadyEditedException';
   }
 }
+
+export class DistrictAlreadySuspendedException extends DomainException {
+  // 🗒override修飾子が無くてもオーバーライドは可能であるが、付与するとTypeScript が
+  // 「親クラスに本当にその名前があるか」をチェックしてくれる
+  override readonly status: number = HttpStatus.CONFLICT;
+  override readonly errorCode: string = 'CITY_ALREADY_SUSPENDED';
+
+  constructor(districtName: string) {
+    super(`この地区は停止中のため、更新できません。地区： ${districtName}`);
+    this.name = 'DistrictAlreadySuspendedException';
+  }
+}

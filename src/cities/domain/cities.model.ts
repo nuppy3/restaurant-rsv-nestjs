@@ -274,7 +274,7 @@ export class City {
    * ・ステータス更新（＝status: 編集中/ updateAtの更新)
    */
   unpublish(): void {
-    // 掲載中に更新可能か判定(ガード節): ドメインルール
+    // 編集中に更新可能か判定(ガード節): ドメインルール
     this.validateCanUnpublish();
 
     // ステータス更新と更新日付セット

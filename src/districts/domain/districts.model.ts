@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import {
+  DistrictAlreadySuspendedException,
   DistrictAreadyEditedException,
   DistrictAreadyPublishedException,
 } from './errors/districts.exception';
@@ -282,6 +283,30 @@ export class District {
   }
 
   /**
+   * domain delete(ソフトデリート)
+   * deleteロジックを集約（serviceなどに漏らさない)
+   * 論理削除: 利用停止(suspended)にする
+   * 地区が紐づいているかの判定は集約をまたぐため CitiesDomainService で行う
+   *
+   * 当該メソッドは、すでに存在する「特定のデータ（自分自身の状態）」を持つオブジェクトに対して
+   * 命令を下すメソッドなので、staticではなく、インスタンスメソッド。
+   *
+   * ・デリートしてもいいかの判定
+   *  例：
+   *  - すでに利用停止状態の場合は削除しない(エラーを投げる）
+   *  - 紐づく地区が存在する場合は削除しない → Domain Serviceにて実施
+   * ・ソフトデリート（＝status: 停止/ updateAtの更新)
+   */
+  suspend(): void {
+    // 停止中に更新可能か判定(ガード節): ドメインルール
+    this.validateCanSuspend();
+
+    // ステータス・更新日付 更新
+    this._status = DistrictStatus.SUSPENDED;
+    this._updatedAt = new Date();
+  }
+
+  /**
    * 更新が可能かどうかのビジネスルールを判定
    * 判定NGの場合はエラーをスロー(ガード節)
    *
@@ -325,6 +350,62 @@ export class District {
     // ルール② 例： 紐づく地区が存在するか(prefectureIdが存在するか）
     // ルール③ 例：ビジネスルール（例: 現在キャンペーン実施中は削除不可）
     // ルール④ 例：北陸地方（code:05）の場合、特定の期間中は削除不可
+  }
+
+  /**
+   * 削除（利用停止）が可能かどうかのビジネスルールを判定
+   * 判定NGの場合はエラーをスロー(ガード節)
+   *
+   * 外部から「削除ボタンを表示するかどうか」の判定にも使えるよう public にするのもアリです
+   */
+  private validateCanSuspend(): void {
+    // ルール①：既に停止中の場合
+    if (this._status === DistrictStatus.SUSPENDED) {
+      throw new DistrictAlreadySuspendedException(this._name);
+    }
+  }
+
+  /**
+   * Getter 定義
+   * コンストラクタの引数名（内部変数名）に'_'(アンダースコア)をつけて手を加え、
+   * 外部に見せる名前（Getter）を綺麗な 変数名（code、name、、） に保つのが一般的。
+   *
+   * なぜ _（アンダースコア）がよく使われるのか？
+   * 多くのエンジニアが private readonly _code: string と書く理由は、
+   * **「外部に公開するプロパティ名（Getter名）を、一番自然な code という名前にしたいから」**です。
+   * 内部: _code（ちょっと汚くてもいい、隠れているから）
+   * 公開: code（利用者が使いやすい、綺麗な名前）
+   */
+  // getterのみ(setterなし)のため、外部からidを書き換えることはできない
+  get id(): string {
+    return this._id;
+  }
+  get code(): string {
+    return this._code;
+  }
+  get name(): string {
+    return this._name;
+  }
+  get kanaName(): string {
+    return this._kanaName;
+  }
+  get slug(): string {
+    return this._slug;
+  }
+  get status(): DistrictStatus {
+    return this._status;
+  }
+  get sortOrder(): number {
+    return this._sortOrder;
+  }
+  get createdAt(): Date {
+    return this._createdAt;
+  }
+  get updatedAt(): Date {
+    return this._updatedAt;
+  }
+  get cityId(): string | undefined {
+    return this._cityId;
   }
 }
 
