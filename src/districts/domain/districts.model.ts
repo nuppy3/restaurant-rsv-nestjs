@@ -1,4 +1,8 @@
 import { randomUUID } from 'crypto';
+import {
+  DistrictAreadyEditedException,
+  DistrictAreadyPublishedException,
+} from './errors/districts.exception';
 /**
  * District domain 全属性(完全な状態)
  *
@@ -52,13 +56,13 @@ export type ReconstituteDistrictProps = DistrictState;
  * District(地区) domain
  *
  * ### Domain Behavior(ドメインの振る舞い)
- * - createNew(): 新しいCityを作成する（ファクトリメソッド）
- * - reconstitute(): Cityの再構築（DB等から再構築)
- * - toSnapshot(): Cityのプロパティをスナップショットに変換
- * - update(): Cityの情報を更新する
- * - publish(): Cityを公開する
- * - unpublish(): Cityを非公開(編集中)にする
- * - suspend(): Cityを停止中にする
+ * - createNew(): 新しいDistrictを作成する（ファクトリメソッド）
+ * - reconstitute(): Districtの再構築（DB等から再構築)
+ * - toSnapshot(): Districtのプロパティをスナップショットに変換
+ * - update(): Districtの情報を更新する
+ * - publish(): Districtを公開する
+ * - unpublish(): Districtを非公開(編集中)にする
+ * - suspend(): Districtを停止中にする
  */
 export class District {
   private readonly _id: string;
@@ -235,6 +239,49 @@ export class District {
   }
 
   /**
+   * publish(): domainを掲載中に更新
+   * publishロジックを集約（serviceなどに漏らさない)
+   *
+   * 当該メソッドは、すでに存在する「特定のデータ（自分自身の状態）」を持つオブジェクトに対して
+   * 命令を下すメソッドなので、staticではなく、インスタンスメソッド。
+   *
+   * ・掲載中にしてもいいかの判定
+   *  例：
+   *  - すでに掲載中状態の場合は掲載中に更新しない(エラーを投げる）
+   * ・ステータス更新（＝status: 掲載中/ updateAtの更新)
+   */
+  publish(): void {
+    // ドメインルール： 更新可能か判定(ガード節)
+    this.validateCanPublish();
+
+    // ステータス・更新日付 更新
+    this._status = DistrictStatus.PUBLISHED;
+    this._updatedAt = new Date();
+  }
+
+  /**
+   * unpublish(): domainを編集中に更新
+   * unpublishロジックを集約（serviceなどに漏らさない)
+   * 掲載を取り下げて編集中(editing)に戻す
+   *
+   * 当該メソッドは、すでに存在する「特定のデータ（自分自身の状態）」を持つオブジェクトに対して
+   * 命令を下すメソッドなので、staticではなく、インスタンスメソッド。
+   *
+   * ・編集中にしてもいいかの判定
+   *  例：
+   *  - すでに掲載中状態の場合は掲載中に更新しない(エラーを投げる）
+   * ・ステータス更新（＝status: 編集中/ updateAtの更新)
+   */
+  unpublish(): void {
+    // 編集中に更新可能か判定(ガード節): ドメインルール
+    this.validateCanUnpublish();
+
+    // ステータス・更新日付 更新
+    this._status = DistrictStatus.EDITING;
+    this._updatedAt = new Date();
+  }
+
+  /**
    * 更新が可能かどうかのビジネスルールを判定
    * 判定NGの場合はエラーをスロー(ガード節)
    *
@@ -245,6 +292,36 @@ export class District {
     if (this._status === DistrictStatus.PUBLISHED) {
       throw new DistrictAreadyPublishedException(this._name);
     }
+    // ルール② 例： 紐づく地区が存在するか(prefectureIdが存在するか）
+    // ルール③ 例：ビジネスルール（例: 現在キャンペーン実施中は削除不可）
+    // ルール④ 例：北陸地方（code:05）の場合、特定の期間中は削除不可
+  }
+
+  /**
+   * 掲載中に更新可能かどうかのビジネスルールを判定
+   * 判定NGの場合はエラーをスロー(ガード節)
+   */
+  private validateCanPublish(): void {
+    // ルール①：ステータスが掲載中の場合
+    if (this._status === DistrictStatus.PUBLISHED) {
+      throw new DistrictAreadyPublishedException(this._name);
+    }
+
+    // ルール② 例： 紐づく地区が存在するか(prefectureIdが存在するか）
+    // ルール③ 例：ビジネスルール（例: 現在キャンペーン実施中は削除不可）
+    // ルール④ 例：北陸地方（code:05）の場合、特定の期間中は削除不可
+  }
+
+  /**
+   * 編集中に更新可能かどうかのビジネスルールを判定
+   * 判定NGの場合はエラーをスロー(ガード節)
+   */
+  private validateCanUnpublish(): void {
+    // ルール①：ステータスが編集中の場合
+    if (this._status === DistrictStatus.EDITING) {
+      throw new DistrictAreadyEditedException(this._name);
+    }
+
     // ルール② 例： 紐づく地区が存在するか(prefectureIdが存在するか）
     // ルール③ 例：ビジネスルール（例: 現在キャンペーン実施中は削除不可）
     // ルール④ 例：北陸地方（code:05）の場合、特定の期間中は削除不可
@@ -261,7 +338,7 @@ export const DistrictStatus = {
 /**
  * DistrictStatus（モダンenum=union）の型を定義()
  *
- * 上記の 「const DistrictStatus」はあくまでconstオブジェクト(値)であり、CityStatusという型
+ * 上記の 「const DistrictStatus」はあくまでconstオブジェクト(値)であり、DistrictStatusという型
  * ではないのでtype DistrictStatusとして型を定義している。
  *
  * type DistrictStatus = "published" | "editing" | "suspended"
