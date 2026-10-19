@@ -6,7 +6,7 @@ import {
 } from './errors/cities.exceptions';
 
 /**
- * Cities domain 全属性(完全な状態)
+ * City domain 全属性(完全な状態)
  *
  * 都道府県(Prefecture)は別集約のため、オブジェクトではなくID(prefectureId)で参照する。
  * 都道府県が未設定の都市も存在するため任意項目。
@@ -106,7 +106,7 @@ export class City {
   }
 
   /**
-   * 新しいCityを作成する（ファクトリメソッド）
+   * 新しいCity(都市)を作成する（ファクトリメソッド）
    *
    * @param props City domain作成に必要なプロパティ
    * @returns City domain
