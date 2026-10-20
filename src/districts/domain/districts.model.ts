@@ -134,7 +134,7 @@ export class District {
    * @param props District domain再構築用項目(DB全項目)
    * @returns District domain
    */
-  static Reconstitute(props: ReconstituteDistrictProps): District {
+  static reconstitute(props: ReconstituteDistrictProps): District {
     return new District(
       props.id,
       props.code,

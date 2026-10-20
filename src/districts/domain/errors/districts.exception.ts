@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { DomainException } from 'src/common/domain/errors/domain.exception';
+import { DomainException } from '../../../common/domain/errors/domain.exception';
 
 /**
  * 地区が掲載中(published)のため操作できない場合の例外
