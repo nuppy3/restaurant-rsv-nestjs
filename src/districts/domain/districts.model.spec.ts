@@ -5,7 +5,13 @@ import {
   DistrictState,
   DistrictStatus,
   ReconstituteDistrictProps,
+  UpdateDistrictProps,
 } from './districts.model';
+import {
+  DistrictAlreadyEditedException,
+  DistrictAlreadyPublishedException,
+  DistrictAlreadySuspendedException,
+} from './errors/districts.exception';
 
 describe('■■■ District Domain Test ■■■', () => {
   // -----------------------------
@@ -30,7 +36,7 @@ describe('■■■ District Domain Test ■■■', () => {
       } satisfies CreateDistrictProps);
 
       // 検証
-      // City(domain)のインスタンスが返ること
+      // District(domain)のインスタンスが返ること
       expect(district).toBeInstanceOf(District);
       // idがdomainでUUID形式で採番されていること(値は毎回変わるので形式で検証する)
       expect(district.id).toMatch(UUID_PATTERN);
@@ -112,7 +118,7 @@ describe('■■■ District Domain Test ■■■', () => {
         cityId: CITY_ID,
       } satisfies CreateDistrictProps);
 
-      // 検証: City(domain)のインスタンスが返ること
+      // 検証: District(domain)のインスタンスが返ること
       expect(district).toBeInstanceOf(District);
       // 検証: 渡した項目がそのまま設定され、statusは編集中(createNewと同じ)であること
       expect(district.code).toBe('00002');
@@ -150,7 +156,7 @@ describe('■■■ District Domain Test ■■■', () => {
   // reconstitute() と toSnapshot() を合わせた test
   // -----------------------------
   // reconstitute: DBから取得したデータでdomainを復元する(statusや日付もそのまま使う)
-  // toSnapshot:   domainの状態を CityState(読み取り専用のデータ)として取り出す
+  // toSnapshot:   domainの状態を DistrictState(読み取り専用のデータ)として取り出す
   describe('------ reconstitute() / toSnapshot() test ------', () => {
     it('正常系: 再構築したdomainのプロパティがDistrictStateの形で返却されること', () => {
       // domain 作成: 掲載中の東京(reconstitute() で復元)
@@ -162,7 +168,7 @@ describe('■■■ District Domain Test ■■■', () => {
       const snapshot = district.toSnapshot();
 
       // 検証: 復元時に渡した値が、そのままスナップショットに入っていること
-      // (satisfies CityState: 期待値の形が CityState と一致しているかもコンパイル時にチェック)
+      // (satisfies DistrictState: 期待値の形が DistrictState と一致しているかもコンパイル時にチェック)
       // (idもDBの値がそのまま復元されること = createNewのように新しく採番されないこと)
       expect(snapshot).toEqual({
         id: DISTRICT_ID,
@@ -194,6 +200,218 @@ describe('■■■ District Domain Test ■■■', () => {
       expect(district.updatedAt).toEqual(UPDATED_AT);
     });
   });
+
+  // -----------------------------
+  // update() test
+  // -----------------------------
+  // update: 基本情報の更新。掲載中(published)は更新不可。statusは更新対象外
+  describe('------ update() test ------', () => {
+    it('正常系: 編集中の場合、全項目が更新され、updatedAtが更新されること', () => {
+      // 引数作成
+      const props = {
+        code: '00002',
+        name: '恵比寿',
+        kanaName: 'エビス',
+        slug: 'ebisu',
+        sortOrder: 2,
+        cityId: CITY_ID,
+      } satisfies UpdateDistrictProps;
+
+      // domain 作成: 編集中の東京
+      const district = buildDistrict();
+
+      // 実行直前の時刻を記録しておく(updatedAt の検証用)
+      const before = new Date();
+
+      // test対象メソッド呼び出し(全項目を更新)
+      district.update(props);
+
+      // 検証: 全項目が更新されていること
+      expect(district.code).toBe('00002');
+      expect(district.name).toBe('恵比寿');
+      expect(district.kanaName).toBe('エビス');
+      expect(district.slug).toBe('ebisu');
+      expect(district.sortOrder).toBe(2);
+      expect(district.cityId).toBe(CITY_ID);
+      // idは更新対象外(Entityの識別子)なので変わらない
+      expect(district.id).toBe(DISTRICT_ID);
+      // statusは変わらない
+      expect(district.status).toBe(DistrictStatus.EDITING);
+      // 検証: updatedAt が更新時刻(実行直前の時刻以降)になっていること
+      expect(district.updatedAt.getTime()).toBeGreaterThanOrEqual(
+        before.getTime(),
+      );
+      // createdAtは変わらない
+      expect(district.createdAt).toEqual(CREATED_AT);
+    });
+
+    it('正常系: 停止中(suspended)の場合も更新できること', () => {
+      // domain 作成: 停止中の東京都
+      const district = buildDistrict({
+        status: DistrictStatus.SUSPENDED,
+      });
+
+      // test対象メソッド呼び出し
+      district.update({ name: '恵比寿' });
+
+      // 検証: 更新でき、statusは停止中のままであること(更新不可なのは掲載中だけ)
+      expect(district.name).toBe('恵比寿');
+      expect(district.status).toBe(DistrictStatus.SUSPENDED);
+    });
+
+    it('正常系: undefinedの項目は更新されず、元の値が維持されること', () => {
+      // domain 作成: 編集中の東京
+      const district = buildDistrict();
+
+      // test対象メソッド呼び出し(name だけを指定。他の項目は undefined)
+      district.update({ name: '戸越銀座' });
+
+      // 検証: name だけが更新され、指定していない項目は元の値のままであること
+      expect(district.name).toBe('戸越銀座');
+      expect(district.code).toBe('00001');
+      expect(district.kanaName).toBe('ギンザ');
+      expect(district.slug).toBe('ginza');
+      expect(district.sortOrder).toBe(1);
+      expect(district.status).toBe(DistrictStatus.EDITING);
+      expect(district.cityId).toBe(CITY_ID);
+    });
+
+    it('異常系: 掲載中(published)の場合、districtAlreadyPublishedExceptionをスローすること', () => {
+      // domain 作成: 掲載中の東京都
+      const district = buildDistrict({
+        status: DistrictStatus.PUBLISHED,
+      });
+
+      // test対象メソッド呼び出し、結果検証
+      // ・expect() には「実行せずに関数ごと」渡す(() => ...)。
+      //   district.update() と直接書くと、expect に渡す前に例外が発生してテストが失敗してしまう
+      // ・toThrow(new Xxx(...)) で、例外の型とメッセージを一度に検証する
+      expect(() => district.update({ name: '恵比寿' })).toThrow(
+        new DistrictAlreadyPublishedException('銀座'),
+      );
+      // 更新されていないこと(nameもupdatedAtも元のまま)
+      expect(district.name).toBe('銀座');
+      expect(district.updatedAt).toEqual(UPDATED_AT);
+    });
+  });
+
+  // -----------------------------
+  // publish() test
+  // -----------------------------
+  // publish: 掲載中(published)にする。すでに掲載中
+  describe('------ publish() test ------', () => {
+    // it.each: 同じテストを、配列の値ごとに繰り返し実行する
+    // (テスト名の %s に値が入る → 「editing の場合…」「suspended の場合…」の2件のテストになる)
+    // ここでは「掲載中にできる遷移元のstatus」を並べている
+    it.each([DistrictStatus.EDITING, DistrictStatus.SUSPENDED])(
+      '正常系: %s の場合、掲載中(published)になり、updatedAtが更新されること',
+      (status) => {
+        // domain 作成: 遷移元のstatus(editing / suspended)の東京都
+        const district = buildDistrict({ status });
+        // 実行直前の時刻を記録しておく(updatedAt の検証用)
+        const before = new Date();
+
+        // test対象メソッド呼び出し
+        district.publish();
+
+        // 検証: 掲載中になり、updatedAt が更新されていること
+        expect(district.status).toBe(DistrictStatus.PUBLISHED);
+        expect(district.updatedAt.getTime()).toBeGreaterThanOrEqual(
+          before.getTime(),
+        );
+      },
+    );
+
+    it('異常系: すでに掲載中(published)の場合、districtAlreadyPublishedExceptionをスローすること', () => {
+      // domain 作成: 掲載中の東京都
+      const district = buildDistrict({
+        status: DistrictStatus.PUBLISHED,
+      });
+
+      // test対象メソッド呼び出し、結果検証(二重に掲載中にはできない)
+      expect(() => district.publish()).toThrow(
+        new DistrictAlreadyPublishedException('銀座'),
+      );
+    });
+  });
+
+  // -----------------------------
+  // unpublish() test
+  // -----------------------------
+  // unpublish: 掲載を取り下げて編集中(editing)に戻す。すでに編集中の場合は不可
+  describe('------ unpublish() test ------', () => {
+    // 「編集中に戻せる遷移元のstatus」を並べて、それぞれでテストする(it.each)
+    it.each([DistrictStatus.PUBLISHED, DistrictStatus.SUSPENDED])(
+      '正常系: %s の場合、編集中(editing)になり、updatedAtが更新されること',
+      (status) => {
+        // domain 作成: 遷移元のstatus(published / suspended)の東京都
+        const district = buildDistrict({ status });
+        // 実行直前の時刻を記録しておく(updatedAt の検証用)
+        const before = new Date();
+
+        // test対象メソッド呼び出し
+        district.unpublish();
+
+        // 検証: 編集中になり、updatedAt が更新されていること
+        expect(district.status).toBe(DistrictStatus.EDITING);
+        expect(district.updatedAt.getTime()).toBeGreaterThanOrEqual(
+          before.getTime(),
+        );
+      },
+    );
+
+    it('異常系: すでに編集中(editing)の場合、districtAlreadyEditedExceptionをスローすること', () => {
+      // domain 作成: 編集中の東京都
+      const District = buildDistrict();
+
+      // test対象メソッド呼び出し、結果検証(二重に編集中にはできない)
+      expect(() => District.unpublish()).toThrow(
+        new DistrictAlreadyEditedException('銀座'),
+      );
+    });
+  });
+
+  // -----------------------------
+  // suspend() test
+  // -----------------------------
+  // suspend: 論理削除。停止中(suspended)にする。すでに停止中の場合は不可
+  // ※ 地区が紐づいているかのチェックは他集約(District)をまたぐため、DomainService(assertDeletable)の担当
+  describe('------ suspend() test ------', () => {
+    // 「停止中にできる遷移元のstatus」を並べて、それぞれでテストする(it.each)
+    it.each([DistrictStatus.EDITING, DistrictStatus.PUBLISHED])(
+      '正常系: %s の場合、停止中(suspended)になり、updatedAtが更新されること',
+      (status) => {
+        // domain 作成: 遷移元のstatus(editing / published)の東京都
+        const district = buildDistrict({ status });
+        // 実行直前の時刻を記録しておく(updatedAt の検証用)
+        const before = new Date();
+
+        // test対象メソッド呼び出し
+        district.suspend();
+
+        // 検証: 停止中になり、updatedAt が更新されていること
+        expect(district.status).toBe(DistrictStatus.SUSPENDED);
+        expect(district.updatedAt.getTime()).toBeGreaterThanOrEqual(
+          before.getTime(),
+        );
+      },
+    );
+
+    it('異常系: すでに停止中(suspended)の場合、districtAlreadySuspendedExceptionをスローすること', () => {
+      // domain 作成: 停止中の東京都
+      const district = buildDistrict({
+        status: DistrictStatus.SUSPENDED,
+      });
+
+      // test対象メソッド呼び出し、結果検証(二重に停止中にはできない)
+      expect(() => district.suspend()).toThrow(
+        new DistrictAlreadySuspendedException('銀座'),
+      );
+      expect(() => district.suspend()).toThrow(
+        DistrictAlreadySuspendedException,
+      );
+    });
+  });
 });
 
 // テストデータ: 都道府県(関東)に紐づく東京都
@@ -203,7 +421,7 @@ describe('■■■ District Domain Test ■■■', () => {
 //         ※ ただし describe() の直下(it() の外)で使うと、読み込み中に実行されるためエラーになる
 const CITY_ID = '7c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f';
 // update で cityId を変えるテスト用(例: 大阪)
-const OTHER_CITY_ID = '3ca1f9a2-dd34-490c-8f2a-22be00b00565';
+// const OTHER_CITY_ID = '3ca1f9a2-dd34-490c-8f2a-22be00b00565';
 const DISTRICT_ID = '5b6c7d8e-9f01-4a2b-8c3d-4e5f60718293';
 // UUID形式(8-4-4-4-12桁の16進数)の正規表現。createNewで採番されるidの検証用
 const UUID_PATTERN =
@@ -212,14 +430,14 @@ const CREATED_AT = new Date('2025-04-05T10:00:00.000Z');
 const UPDATED_AT = new Date('2025-04-05T12:30:00.000Z');
 
 /**
- * 任意のstatusでCity domainを再構築するヘルパー
+ * 任意のstatusでDistrict domainを再構築するヘルパー
  * createNewではstatusや日付を指定できないため、reconstituteを使う
  *
  * 基本形は「編集中(editing)・都道府県(東京都)ありの東京」。
  * 引数で一部の項目だけを上書きできる。
  *
  *   例) buildbuildDistrict()                                 → 編集中の東京
- *       buildbuildDistrict({ status: CityStatus.PUBLISHED }) → 掲載中の東京
+ *       buildbuildDistrict({ status: DistrictStatus.PUBLISHED }) → 掲載中の東京
  *       buildbuildDistrict({ prefectureId: undefined })          → 都道府県未設定の東京
  */
 const buildDistrict = (

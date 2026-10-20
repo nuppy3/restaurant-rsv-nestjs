@@ -1,8 +1,8 @@
 import { randomUUID } from 'crypto';
 import {
-  DistrictAlreadySuspendedException,
-  DistrictAreadyEditedException,
-  DistrictAreadyPublishedException,
+  DistrictAlreadyEditedException,
+  DistrictAlreadyPublishedException,
+  DistrictAlreadySuspendedException
 } from './errors/districts.exception';
 /**
  * District domain 全属性(完全な状態)
@@ -315,7 +315,7 @@ export class District {
   private validateCanUpdate(): void {
     // ルール①：ステータスが掲載中の場合
     if (this._status === DistrictStatus.PUBLISHED) {
-      throw new DistrictAreadyPublishedException(this._name);
+      throw new DistrictAlreadyPublishedException(this._name);
     }
     // ルール② 例： 紐づく地区が存在するか(prefectureIdが存在するか）
     // ルール③ 例：ビジネスルール（例: 現在キャンペーン実施中は削除不可）
@@ -329,7 +329,7 @@ export class District {
   private validateCanPublish(): void {
     // ルール①：ステータスが掲載中の場合
     if (this._status === DistrictStatus.PUBLISHED) {
-      throw new DistrictAreadyPublishedException(this._name);
+      throw new DistrictAlreadyPublishedException(this._name);
     }
 
     // ルール② 例： 紐づく地区が存在するか(prefectureIdが存在するか）
@@ -344,7 +344,7 @@ export class District {
   private validateCanUnpublish(): void {
     // ルール①：ステータスが編集中の場合
     if (this._status === DistrictStatus.EDITING) {
-      throw new DistrictAreadyEditedException(this._name);
+      throw new DistrictAlreadyEditedException(this._name);
     }
 
     // ルール② 例： 紐づく地区が存在するか(prefectureIdが存在するか）
