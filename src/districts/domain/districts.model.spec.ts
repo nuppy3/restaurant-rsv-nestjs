@@ -11,7 +11,7 @@ import {
   DistrictAlreadyEditedException,
   DistrictAlreadyPublishedException,
   DistrictAlreadySuspendedException,
-} from './errors/districts.exception';
+} from './errors/districts.exceptions';
 
 describe('■■■ District Domain Test ■■■', () => {
   // -----------------------------
@@ -362,10 +362,10 @@ describe('■■■ District Domain Test ■■■', () => {
 
     it('異常系: すでに編集中(editing)の場合、districtAlreadyEditedExceptionをスローすること', () => {
       // domain 作成: 編集中の東京都
-      const District = buildDistrict();
+      const district = buildDistrict();
 
       // test対象メソッド呼び出し、結果検証(二重に編集中にはできない)
-      expect(() => District.unpublish()).toThrow(
+      expect(() => district.unpublish()).toThrow(
         new DistrictAlreadyEditedException('銀座'),
       );
     });

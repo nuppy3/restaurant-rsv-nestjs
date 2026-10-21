@@ -2,8 +2,8 @@ import { randomUUID } from 'crypto';
 import {
   DistrictAlreadyEditedException,
   DistrictAlreadyPublishedException,
-  DistrictAlreadySuspendedException
-} from './errors/districts.exception';
+  DistrictAlreadySuspendedException,
+} from './errors/districts.exceptions';
 /**
  * District domain 全属性(完全な状態)
  *
@@ -70,14 +70,14 @@ export class District {
   private _code: string;
   private _name: string;
   private _kanaName: string;
-  // URL用の識別子(例: /tokyo)であり、業務上の属性のためdomainとして保持。
+  // URL用の識別子(例: /ginza)であり、業務上の属性のためdomainとして保持。
   // 例えば管理画面から登録・変更する際、domain が持っていないと保存できない
   private _slug: string;
   private _status: DistrictStatus;
   private _sortOrder: number;
   private _createdAt: Date;
   private _updatedAt: Date;
-  // PrefectureId(Prefectureとの紐付け関連(任意。例: 東京 → 東京都、横浜 → 神奈川県))
+  // 都市(City)との紐付け関連(必須。例: 銀座 → 東京)
   private _cityId: string;
 
   private constructor(
@@ -286,7 +286,7 @@ export class District {
    * domain delete(ソフトデリート)
    * deleteロジックを集約（serviceなどに漏らさない)
    * 論理削除: 利用停止(suspended)にする
-   * 地区が紐づいているかの判定は集約をまたぐため CitiesDomainService で行う
+   * 店舗が紐づいているかの判定は集約をまたぐため DistrictsDomainService で行う
    *
    * 当該メソッドは、すでに存在する「特定のデータ（自分自身の状態）」を持つオブジェクトに対して
    * 命令を下すメソッドなので、staticではなく、インスタンスメソッド。
@@ -404,7 +404,7 @@ export class District {
   get updatedAt(): Date {
     return this._updatedAt;
   }
-  get cityId(): string | undefined {
+  get cityId(): string {
     return this._cityId;
   }
 }
