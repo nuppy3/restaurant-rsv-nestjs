@@ -1,1 +1,5 @@
-export class DistrictOptionReadModel {}
+export type DistrictOptionReadModel = {
+  id: string;
+  code: string;
+  name: string;
+};
