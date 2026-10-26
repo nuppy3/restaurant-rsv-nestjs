@@ -1,7 +1,9 @@
+import { NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PaginatedResult } from 'src/common/interfaces/paginated-result.interface';
 import { PAGINATION } from '../../common/constants/pagination.constants';
 import { PrismaService } from '../../prisma/prisma.service';
+import { DistrictStatus } from '../domain/districts.model';
 import { DistrictFilter } from './district.filter';
 import { DistrictDetailReadModel } from './read-model/district-detail.read-model';
 import { DistrictListReadModel } from './read-model/district-list.read-model';
@@ -91,8 +93,34 @@ export class DistrictsQueryService {
     return paginated;
   }
 
-  findAll(): DistrictOptionReadModel {
-    return new DistrictOptionReadModel();
+  /**
+   * findAll(): 地区情報一覧(全件・ページネーションなし)を取得し、返却します。
+   *            ドロップダウンなど、全件を軽量な形で必要とする画面向け。
+   *            一覧画面用のfindAllPaginated()とは異なり、件数(count)の算出や
+   *            take/skipによる絞り込みは行わない。
+   *
+   * memo: statusはPUBLISHEDに固定(ハードコード)。編集中・停止中のエリアを
+   *       選択肢に出すのは業務的に不自然なため、外部からのfilter引数は受け付けない。
+   *
+   * @returns 地区情報一覧(DistrictOptionReadModel[])
+   */
+  async findAll(): Promise<DistrictOptionReadModel[]> {
+    const prismaDistricts = await this.prismaService.district.findMany({
+      // ステータス：公開中
+      where: { status: DistrictStatus.PUBLISHED },
+      orderBy: { code: 'asc' },
+    });
+
+    // prisma[] → read model[]
+    const readModels = prismaDistricts.map(
+      (district) =>
+        ({
+          id: district.id,
+          code: district.code,
+          name: district.name,
+        }) satisfies DistrictOptionReadModel,
+    );
+    return readModels;
   }
 
   /**
@@ -105,8 +133,33 @@ export class DistrictsQueryService {
    * @returns District Detail Read Model(地区詳細情報)
    * @throws {NotFoundException} 指定されたIDのDistrictが存在しない場合
    */
-  getDetailByIdOrThrow(id: string): DistrictDetailReadModel {
-    return new DistrictDetailReadModel();
+  async getDetailByIdOrThrow(id: string): Promise<DistrictDetailReadModel> {
+    // 地区情報取得
+    const prismaDistrict = await this.prismaService.district.findUnique({
+      include: { city: { select: { name: true } } },
+      where: { id },
+    });
+
+    // 存在しなければ404
+    if (!prismaDistrict) {
+      throw new NotFoundException(
+        `idに関連する地区情報が存在しません!! DistrictId: ${id}`,
+      );
+    }
+
+    // prisma → read model
+    return {
+      id: prismaDistrict.id,
+      code: prismaDistrict.code,
+      name: prismaDistrict.name,
+      kanaName: prismaDistrict.kanaName,
+      slug: prismaDistrict.slug,
+      status: prismaDistrict.status,
+      sortOrder: prismaDistrict.sortOrder,
+      cityId: prismaDistrict.cityId,
+      updatedAt: prismaDistrict.updatedAt,
+      createdAt: prismaDistrict.createdAt,
+    } satisfies DistrictDetailReadModel;
   }
 
   /**
@@ -119,7 +172,32 @@ export class DistrictsQueryService {
    * @returns District Detail Read Model(地区詳細情報)
    * @throws {NotFoundException} 指定されたIDのDistrictが存在しない場合
    */
-  getDetailByCodeOrThrow(code: string): DistrictDetailReadModel {
-    return new DistrictDetailReadModel();
+  async getDetailByCodeOrThrow(code: string): Promise<DistrictDetailReadModel> {
+    // 地区情報取得
+    const prismaDistrict = await this.prismaService.district.findUnique({
+      include: { city: { select: { name: true } } },
+      where: { code },
+    });
+
+    // 存在しなければ404
+    if (!prismaDistrict) {
+      throw new NotFoundException(
+        `codeに関連する地区情報が存在しません!! code: ${code}`,
+      );
+    }
+
+    // prisma → read model
+    return {
+      id: prismaDistrict.id,
+      code: prismaDistrict.code,
+      name: prismaDistrict.name,
+      kanaName: prismaDistrict.kanaName,
+      slug: prismaDistrict.slug,
+      status: prismaDistrict.status,
+      sortOrder: prismaDistrict.sortOrder,
+      cityId: prismaDistrict.cityId,
+      updatedAt: prismaDistrict.updatedAt,
+      createdAt: prismaDistrict.createdAt,
+    } satisfies DistrictDetailReadModel;
   }
 }

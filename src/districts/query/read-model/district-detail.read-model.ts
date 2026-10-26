@@ -11,6 +11,6 @@ export type DistrictDetailReadModel = {
   sortOrder: number;
   // 必須
   cityId: string;
-  // createdAt: Date;
-  // updatedAt: Date;
+  createdAt: Date;
+  updatedAt: Date;
 };
