@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PaginatedResult } from 'src/common/interfaces/paginated-result.interface';
 import { PAGINATION } from '../../common/constants/pagination.constants';
@@ -17,6 +17,7 @@ import { DistrictOptionReadModel } from './read-model/district-option.read-model
  * 参照系はdomainのルールを通す必要がないため、Repository(domain)を経由せず、
  * Prismaで必要な項目を結合して、そのままRead Modelにする。
  */
+@Injectable()
 export class DistrictsQueryService {
   constructor(
     private readonly configService: ConfigService,
