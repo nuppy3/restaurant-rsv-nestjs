@@ -308,7 +308,7 @@ describe('■■■ DistrictsQueryService test ■■■', () => {
       const result =
         await districtsQueryService.getDetailByIdOrThrow(DISTRICT_ID);
 
-      // 検証: 一覧の項目 + createdAt / updatedAt が返ること(city / userId は含まない)
+      // 検証: 一覧の項目 + createdAt / updatedAt が返ること(city は cityName に変換され、userId は含まない)
       expect(result).toEqual(buildExpectedDetailReadModel());
       // 検証: Prisma に id で検索させ、都市名を include していること
       expect(
@@ -380,7 +380,7 @@ describe('■■■ DistrictsQueryService test ■■■', () => {
 /**
  * 詳細Read Modelの期待値を作成するヘルパー(buildMockPrismaDistrict() の銀座を変換した結果)
  * ・一覧の項目に createdAt / updatedAt を加えたもの
- * ・include した city(都市名)と userId は含まない
+ * ・include した city(都市名)は cityName として入る。userId は含まない
  *
  * ⭐️memo: 定数(const expected = {...})ではなく関数にしている理由
  *         定数だと、このファイルの読み込み時にすぐ値が作られるため、下で定義している
@@ -396,6 +396,8 @@ const buildExpectedDetailReadModel = (): DistrictDetailReadModel => ({
   status: DistrictStatus.PUBLISHED,
   sortOrder: 1,
   cityId: CITY_ID,
+  // include した city の name が cityName として入る
+  cityName: '東京',
   createdAt: CREATED_AT,
   updatedAt: UPDATED_AT,
 });
@@ -512,7 +514,7 @@ const buildMockPrismaDistrict = (
 const createExpectedPaginatedResult =
   (): PaginatedResult<DistrictListReadModel> => {
     // createPrismaMockData() の7地区を、一覧のRead Modelに変換した結果(順番も同じ)
-    // createdAt / updatedAt / city / userId は一覧のRead Modelに含まれない
+    // include した city(都市名)は cityName として入る。createdAt / updatedAt / userId は一覧のRead Modelに含まれない
     const readModels: DistrictListReadModel[] = [
       {
         id: DISTRICT_ID,
@@ -523,6 +525,7 @@ const createExpectedPaginatedResult =
         status: DistrictStatus.PUBLISHED,
         sortOrder: 1,
         cityId: CITY_ID,
+        cityName: '東京',
       },
       {
         id: '6c7d8e9f-0a12-4b3c-9d4e-5f6071829304',
@@ -533,6 +536,7 @@ const createExpectedPaginatedResult =
         status: DistrictStatus.PUBLISHED,
         sortOrder: 2,
         cityId: CITY_ID,
+        cityName: '東京',
       },
       {
         id: '7d8e9f0a-1b23-4c4d-8e5f-607182930415',
@@ -543,6 +547,7 @@ const createExpectedPaginatedResult =
         status: DistrictStatus.PUBLISHED,
         sortOrder: 3,
         cityId: CITY_ID,
+        cityName: '東京',
       },
       {
         id: '8e9f0a1b-2c34-4d5e-9f60-718293041526',
@@ -553,6 +558,7 @@ const createExpectedPaginatedResult =
         status: DistrictStatus.PUBLISHED,
         sortOrder: 4,
         cityId: CITY_ID,
+        cityName: '東京',
       },
       {
         id: '9f0a1b2c-3d45-4e6f-8071-829304152637',
@@ -563,6 +569,7 @@ const createExpectedPaginatedResult =
         status: DistrictStatus.PUBLISHED,
         sortOrder: 5,
         cityId: CITY_ID,
+        cityName: '東京',
       },
       {
         id: 'a01b2c3d-4e56-4f70-9182-930415263748',
@@ -573,6 +580,7 @@ const createExpectedPaginatedResult =
         status: DistrictStatus.PUBLISHED,
         sortOrder: 6,
         cityId: CITY_ID,
+        cityName: '東京',
       },
       {
         id: 'b12c3d4e-5f67-4081-8293-041526374859',
@@ -583,6 +591,7 @@ const createExpectedPaginatedResult =
         status: DistrictStatus.PUBLISHED,
         sortOrder: 7,
         cityId: CITY_ID,
+        cityName: '東京',
       },
     ] satisfies DistrictListReadModel[];
 

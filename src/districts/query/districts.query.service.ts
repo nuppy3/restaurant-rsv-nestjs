@@ -85,6 +85,8 @@ export class DistrictsQueryService {
           status: district.status,
           sortOrder: district.sortOrder,
           cityId: district.cityId,
+          // include した都市(city)の名前
+          cityName: district.city.name,
         }) satisfies DistrictListReadModel,
     );
 
@@ -165,6 +167,7 @@ export class DistrictsQueryService {
       status: prismaDistrict.status,
       sortOrder: prismaDistrict.sortOrder,
       cityId: prismaDistrict.cityId,
+      cityName: prismaDistrict.city.name,
       updatedAt: prismaDistrict.updatedAt,
       createdAt: prismaDistrict.createdAt,
     } satisfies DistrictDetailReadModel;
@@ -204,6 +207,7 @@ export class DistrictsQueryService {
       status: prismaDistrict.status,
       sortOrder: prismaDistrict.sortOrder,
       cityId: prismaDistrict.cityId,
+      cityName: prismaDistrict.city.name,
       updatedAt: prismaDistrict.updatedAt,
       createdAt: prismaDistrict.createdAt,
     } satisfies DistrictDetailReadModel;

@@ -19,6 +19,8 @@ export type DistrictListReadModel = {
   sortOrder: number;
   // 必須
   cityId: string;
+  // 都市の名前(例: 東京)。Cityテーブルをincludeして取得する(cityId は必須なので、都市名も必ずある)
+  cityName: string;
   // createdAt: Date;
   // updatedAt: Date;
 };
