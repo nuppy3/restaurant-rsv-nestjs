@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Prisma } from 'generated/prisma';
 import { PaginatedResult } from 'src/common/interfaces/paginated-result.interface';
 import { PAGINATION } from '../../common/constants/pagination.constants';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -27,12 +28,15 @@ export class DistrictsQueryService {
   /**
    * findAllPaginated(): 地区一覧をページネーションで取得する(sortOrder昇順 → code昇順)
    *
-   * @param filters 検索条件(cityId/page/size)。未指定ならデフォルト値
+   * @param filters 検索条件(name / status / cityCode / page / size)。未指定ならデフォルト値
    * @returns 地区一覧(Read Model)とページ情報(総件数・ページ番号・件数)
    */
   async findAllPaginated(
     filters: DistrictFilter = {},
   ): Promise<PaginatedResult<DistrictListReadModel>> {
+    // where句作成(findMany と count で共通に使う)
+    const where = this.toWhere(filters);
+
     // take句作成(ページサイズ): 1〜2000の範囲に制限
     // 未指定の場合は環境変数 DISTRICT_DEFAULT_PAGE_SIZE、それも無ければ20件
     const defaultSize =
@@ -55,6 +59,8 @@ export class DistrictsQueryService {
     // 結果は [findMany()の結果, count()の結果] の配列で返るので、分割代入で受け取る
     const [prismaDistricts, count] = await Promise.all([
       this.prismaService.district.findMany({
+        // 絞り込み条件(name / status / cityCode)
+        where,
         // 都市名取得
         include: { city: { select: { name: true } } },
         // 表示順(sortOrder)の昇順。sortOrderが同じ都市どうしの順番がぶれないよう、code昇順を2つ目の条件にする
@@ -63,7 +69,8 @@ export class DistrictsQueryService {
         // offset
         skip: (page - 1) * size,
       }),
-      this.prismaService.district.count(),
+      // 総件数も、一覧と同じ条件で数える(条件を渡さないと、絞り込み前の全件数になってしまう)
+      this.prismaService.district.count({ where }),
     ]);
 
     // prisma[] → Read Model[]の変換
@@ -200,5 +207,27 @@ export class DistrictsQueryService {
       updatedAt: prismaDistrict.updatedAt,
       createdAt: prismaDistrict.createdAt,
     } satisfies DistrictDetailReadModel;
+  }
+
+  /**
+   * findMany / count の where句を作成します。(共通部分。Region の toWhere と同じ形)
+   *
+   * 指定された条件だけを AND で組み合わせる。未指定の条件は where に含めない(絞り込まない)。
+   *
+   * @param filters 検索条件
+   * @returns where句
+   */
+  private toWhere(filters: DistrictFilter): Prisma.DistrictWhereInput {
+    return {
+      // ...(条件 && { ... }): 条件が truthy(undefined / 空文字 以外)のときだけ、その条件を展開して追加する
+      // (未指定のときに { name: { contains: undefined } } のような条件を作らないため)
+
+      // 地区名: 部分一致(SQLの LIKE '%値%')
+      ...(filters.name && { name: { contains: filters.name } }),
+      // ステータス: 完全一致
+      ...(filters.status && { status: filters.status }),
+      // 都市コード: 地区が属する都市(city)の code で絞り込む(リレーション先の項目を条件にする書き方)
+      ...(filters.cityCode && { city: { code: filters.cityCode } }),
+    } satisfies Prisma.DistrictWhereInput;
   }
 }
