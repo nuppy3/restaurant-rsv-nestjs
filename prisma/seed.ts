@@ -1,10 +1,11 @@
 // ■seed(初期データ投入)スクリプト
 // 実行：npx prisma db seed（package.jsonのprisma.seedに定義したコマンドが実行される）
 // すべてupsertなので、何度実行しても同じ結果になる(冪等)。
-// 投入順：User → Region → Prefecture → City → Store（FKの参照先から順に作成する）
+// 投入順：User → Region → Prefecture → City → District → Store（FKの参照先から順に作成する）
 import * as bcrypt from 'bcrypt';
 import { PrismaClient } from '../generated/prisma';
 import { cities } from './seed-data/cities';
+import { districts } from './seed-data/districts';
 import { prefectures } from './seed-data/prefectures';
 import { regions } from './seed-data/regions';
 import { stores } from './seed-data/stores';
@@ -66,14 +67,35 @@ async function main() {
 
   // 都市
   // prefectureCode(都道府県コード)は、上で作成した都道府県のid(prefectureId)に置き換える
+  const cityIdByCode = new Map<string, string>();
   for (const { prefectureCode, ...c } of cities) {
     const data = {
       ...c,
       prefectureId: prefectureIdByCode.get(prefectureCode),
       userId: user.id,
     };
-    await prisma.city.upsert({
+    const city = await prisma.city.upsert({
       where: { code: c.code },
+      update: data,
+      create: data,
+    });
+    // 地区の cityCode → cityId の解決に使う
+    cityIdByCode.set(city.code, city.id);
+  }
+
+  // 地区
+  // cityCode(都市コード)は、上で作成した都市のid(cityId)に置き換える
+  // cityId は必須のため、該当する都市が無い場合はエラーにする(seed-data の書き間違いに気づけるように)
+  for (const { cityCode, ...d } of districts) {
+    const cityId = cityIdByCode.get(cityCode);
+    if (!cityId) {
+      throw new Error(
+        `地区 ${d.code}(${d.name}) の cityCode '${cityCode}' に該当する都市がありません`,
+      );
+    }
+    const data = { ...d, cityId, userId: user.id };
+    await prisma.district.upsert({
+      where: { code: d.code },
       update: data,
       create: data,
     });
@@ -96,7 +118,7 @@ async function main() {
   }
 
   console.log(
-    `✅ seed completed: user=1, regions=${regions.length}, prefectures=${prefectures.length}, cities=${cities.length}, stores=${stores.length}`,
+    `✅ seed completed: user=1, regions=${regions.length}, prefectures=${prefectures.length}, cities=${cities.length}, districts=${districts.length}, stores=${stores.length}`,
   );
 }
 
