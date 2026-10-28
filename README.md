@@ -51,7 +51,7 @@ $ docker compose up -d
 # schema.prismaの内容をDBに反映(Prismaクライアントも生成される)
 $ npx prisma db push
 
-# 初期データ投入(地方8件・都道府県47件・店舗10件・seedユーザー1件)
+# 初期データ投入(地方8件・都道府県47件・都市8件・地区7件・店舗10件・seedユーザー1件)
 $ npx prisma db seed
 ```
 
@@ -59,6 +59,14 @@ $ npx prisma db seed
 - seedはupsertのため何度実行しても同じ結果になる。DBを初期状態に戻す場合は `npx prisma db push --force-reset && npx prisma db seed`
 - seedデータの定義は `prisma/seed.ts` と `prisma/seed-data/` 配下
 - 開発用のseedユーザー: `seed@example.com` / `Passw0rd!`(環境変数 `SEED_USER_PASSWORD` で変更可)
+- 投入結果の確認
+  - 実行の最後に `✅ seed completed: ... districts=7 ...` のように件数が出る。2回実行しても件数が増えなければ、重複なく投入できている
+  - 画面で見る: `npx prisma studio`(ブラウザでテーブルの中身を確認できる)
+  - SQLで見る(例: 地区と所属する都市):
+    ```bash
+    $ docker exec restaurant-rsv-postgres psql -U nestjsuser -d restaurant_rsv \
+        -c 'select d.code, d.name, c.name as city from "District" d join "City" c on c.id = d."cityId" order by d."sortOrder";'
+    ```
 
 #### DB運用方針(db push)
 
