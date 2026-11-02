@@ -24,7 +24,7 @@ export class FindAllRegionsQueryDto {
   @MaxLength(2) // 任意項目だが入力された際のValidation
   code?: string;
 
-  // エリアコード
+  // エリア名
   @IsOptional() // 任意項目デコレーター(渡された値がnullの場合は、以降のIsString、MaxLengthなどを無視する)
   @IsString() // 任意項目だが入力された際のValidation
   @MaxLength(40) // 任意項目だが入力された際のValidation
