@@ -1,8 +1,9 @@
-import { Controller, Query } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { instanceToPlain, plainToInstance } from 'class-transformer';
 import { DistrictFilter } from '../../../districts/query/district.filter';
 import { DistrictsQueryService } from './../../query/districts.query.service';
 import {
+  DistrictOptionResponseDto,
   DistrictResponseDto,
   FindAllDistrictsQueryDto,
   PaginatedDistrictResponseDto,
@@ -12,7 +13,16 @@ import {
 export class DistrictsController {
   constructor(private readonly districtsQueryService: DistrictsQueryService) {}
 
-  async findAllPaginated(@Query() query: FindAllDistrictsQueryDto) {
+  /**
+   * 地区情報リスト取得： 地区情報の一覧(ページネーション化された)を取得します。
+   *
+   * @param query 地区情報検索クエリDTO(フィルター項目/ソート順など)
+   * @returns 地区情報一覧(ページネーション化されたエリア情報一覧)
+   */
+  @Get()
+  async findAllPaginated(
+    @Query() query: FindAllDistrictsQueryDto,
+  ): Promise<PaginatedDistrictResponseDto> {
     // queryDto → filter
     // memo: HTTPSのリクエストパラメーターについてnullって送れるの？unndefindって送れるの？
     // regions.controller.tsを参照
@@ -35,6 +45,29 @@ export class DistrictsController {
       this.toResponseDto(paginated.data),
       paginated.meta,
     );
+  }
+
+  /**
+   * 地区情報選択肢取得： ドロップダウンなどの選択肢用に、地区情報一覧
+   *                   (全件・ページネーションなし、PUBLISHEDのみ)を取得します。
+   *
+   * @returns 地区情報選択肢一覧
+   */
+  @Get('options')
+  async findAll(): Promise<DistrictOptionResponseDto[]> {
+    // 地区一覧取得(Read Model[])
+    const readModels = await this.districtsQueryService.findAll();
+
+    // read model → dto
+    // instanceToPlain()を咬まさないと、DTOのgetter(statusLabelなど)が機能しなかったので追加している。
+    const data = instanceToPlain(
+      plainToInstance(DistrictOptionResponseDto, readModels, {
+        excludeExtraneousValues: true,
+      }),
+      { exposeUnsetFields: false },
+    ) as DistrictOptionResponseDto[];
+
+    return data;
   }
 
   /**

@@ -187,3 +187,31 @@ export class PaginatedDistrictResponseDto implements PaginatedResult<DistrictRes
     this.meta = meta;
   }
 }
+
+// -------------------------------------------------
+// ResponseDTO(ドロップダウン選択肢用): 型安全なRegionドメインのサブセット
+// -------------------------------------------------
+export const DistrictOptionResponseKeys = [
+  'name',
+  'code',
+] satisfies (keyof District)[];
+
+export type DistrictOptionResponseShape = Pick<
+  District,
+  (typeof DistrictOptionResponseKeys)[number]
+>;
+
+/**
+ * 地区選択肢(ドロップダウン)用レスポンスDTO
+ * DistrictドメインのサブセットDTO(一覧用のDistrictResponseDtoより項目を絞った軽量版)
+ */
+export class DistrictOptionResponseDto implements DistrictOptionResponseShape {
+  @Expose()
+  readonly id!: string;
+
+  @Expose()
+  name!: string;
+
+  @Expose()
+  code!: string;
+}
