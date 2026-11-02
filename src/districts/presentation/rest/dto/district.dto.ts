@@ -8,6 +8,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { PaginatedResult } from 'src/common/interfaces/paginated-result.interface';
 import { PAGINATION } from '../../../../common/constants/pagination.constants';
 import {
   District,
@@ -96,8 +97,7 @@ export type DistrictResponseShape = Pick<
  * 不要な項目を除外（@Exclude）
  * 値の変換（@Transform）
  */
-export class DistrictResponse implements DistrictResponseShape {
-  // ドメインにidは不要。ResponseDtoにidを付与。→ベストプラクティス!!
+export class DistrictResponseDto implements DistrictResponseShape {
   @Expose()
   readonly id!: string;
 
@@ -135,4 +135,55 @@ export class DistrictResponse implements DistrictResponseShape {
 
   @Expose()
   cityId!: string;
+}
+
+/**
+ * ページネーション情報DTO(metaデータ)
+ */
+export class PaginationMetaDto {
+  // 総件数
+  totalCount: number;
+  // ページ
+  page: number;
+  // 1ページあたりの件数
+  size: number;
+
+  constructor(totalCount: number, page: number, size: number) {
+    this.totalCount = totalCount;
+    this.page = page;
+    this.size = size;
+  }
+}
+
+/**
+ * ページネーション化されたDistrictレスポンスDTO
+ *
+ * @Type: plain object → クラスインスタンスへの変換を正確に行うための型ヒント。
+ *        ネストしたDTOをクラスインスタンスに変換するための型ヒント(getterのstatusLabelを有効にするため)
+ *        ネストしたDTO（data が DistrictResponseDto[] の場合など）で変換を正しくしたいとき。
+ *
+ * なぜ必要か？
+ * plainToInstance や ValidationPipe（transform: true時）が動くときに、ネスト部分を
+ * 正しくクラスに変換するため
+ * 例：{ data: [{ id: "1", name: "店A" }, ...] } → data[0] が
+ * DistrictResponseDto インスタンスになる
+ * これがないと、getter（statusLabel, holidaysLabel）が呼ばれなかったり、ネストした
+ * バリデーションが効かなかったりする
+ *
+ * → が、不要な気がする。。
+ * 実際はDistrictResponseDtoをplainToInstanceして、PaginatedDistrictResponseDtoのdataに
+ * セットしており、PaginatedDistrictResponseDtoを直接plainToInstanceしているわけではないため。
+ *
+ */
+export class PaginatedDistrictResponseDto implements PaginatedResult<DistrictResponseDto> {
+  @Type(() => DistrictResponseDto)
+  data: DistrictResponseDto[];
+
+  @Type(() => PaginationMetaDto)
+  meta: PaginationMetaDto;
+
+  constructor(data: DistrictResponseDto[], meta: PaginationMetaDto) {
+    this.data = data;
+    this.meta = meta;
+  }
 }

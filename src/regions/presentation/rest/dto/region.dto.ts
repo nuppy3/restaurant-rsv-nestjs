@@ -166,7 +166,6 @@ export type RegionResponseShape = Pick<
  * 値の変換（@Transform）
  */
 export class RegionResponseDto implements RegionResponseShape {
-  // ドメインにidは不要。ResponseDtoにidを付与。→ベストプラクティス!!
   @Expose()
   readonly id!: string;
 
