@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Expose, Type } from 'class-transformer';
 import {
   IsEnum,
   IsInt,
@@ -8,8 +8,11 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { PAGINATION } from 'src/common/constants/pagination.constants';
-import { DistrictStatus } from '../../../..//districts/domain/districts.model';
+import { PAGINATION } from '../../../../common/constants/pagination.constants';
+import {
+  District,
+  DistrictStatus,
+} from '../../../../districts/domain/districts.model';
 
 /**
  * 地区一覧の検索条件DTO(クエリパラメータ: GET /districts?page=1&size=20)
@@ -57,4 +60,79 @@ export class FindAllDistrictsQueryDto {
   // string → number 変換
   @Type(() => Number)
   size?: number;
+}
+
+// -------------------------------------------------
+// ResopnseDTO: 型安全なDistrictドメインのサブセット
+// -------------------------------------------------
+export const DistrictResponseKeys = [
+  'id',
+  'code',
+  'name',
+  'kanaName',
+  'slug',
+  'status',
+  'sortOrder',
+  'cityId',
+] satisfies (keyof District)[];
+
+/**
+ * DistrictResponseの輪郭(District domainをベースに)
+ */
+export type DistrictResponseShape = Pick<
+  District,
+  (typeof DistrictResponseKeys)[number] // [] → union('id' | 'code' | 'name' | ... )
+>;
+
+/**
+ * 地区情報レスポンスDTO
+ * DistrictドメインのサブセットDTO
+ *
+ * 特記事項：DistrictResponseDto implements StoreResponseShapeは「最低限これらは持ってるよ」
+ * という約束でしかないらしい。。→ それ以上のプロパティ（testとか、hogeとか）を書いても型エラーにならない（仕様）
+ *
+ * @Expose() をつけると、plainToInstance の変換対象になります。
+ * 返却項目を明示（@Expose）
+ * 不要な項目を除外（@Exclude）
+ * 値の変換（@Transform）
+ */
+export class DistrictResponse implements DistrictResponseShape {
+  // ドメインにidは不要。ResponseDtoにidを付与。→ベストプラクティス!!
+  @Expose()
+  readonly id!: string;
+
+  @Expose()
+  code!: string;
+
+  @Expose()
+  name!: string;
+
+  @Expose()
+  kanaName!: string;
+
+  @Expose()
+  slug!: string;
+
+  @Expose()
+  status!: DistrictStatus;
+
+  @Expose()
+  get statusLabel(): string {
+    switch (this.status) {
+      case DistrictStatus.PUBLISHED:
+        return '反映中';
+      case DistrictStatus.EDITING:
+        return '編集中';
+      case DistrictStatus.SUSPENDED:
+        return '停止';
+      default:
+        return '';
+    }
+  }
+
+  @Expose()
+  sortOrder!: number;
+
+  @Expose()
+  cityId!: string;
 }
