@@ -57,7 +57,7 @@ export class FindAllDistrictsQueryDto {
   @IsOptional()
   @IsInt() // 整数のみ許容：一方IsNumberは少数OKになってしまう
   @Min(PAGINATION.MIN_PAGE_SIZE) // 1以上
-  @Max(PAGINATION.MIN_PAGE_SIZE) // numberの場合はMax()を使う
+  @Max(PAGINATION.MAX_PAGE_SIZE) // numberの場合はMax()を使う
   // string → number 変換
   @Type(() => Number)
   size?: number;
