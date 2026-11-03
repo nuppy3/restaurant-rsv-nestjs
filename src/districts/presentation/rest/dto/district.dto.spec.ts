@@ -260,19 +260,28 @@ describe('□□□ District DTO TEST □□□', () => {
         ['slug', 50],
         ['prefectureCode', 2],
       ])(
-        '境界値: %s は %i 文字まで許容し、超える場合はエラーになること',
+        '文字数の上限(@MaxLength)の境界値テスト: %s は %i 文字まで許容し、超える場合はエラーになること',
         async (property, max) => {
+          // dto(Plainオブジェクト)
+          const plainObj = {
+            name: '恵比寿',
+            status: DistrictStatus.SUSPENDED,
+            cityCode: '001',
+            page: '2',
+            size: '10',
+            // } satisfies FindAllDistrictsQueryDto;
+          };
           // 検証: 上限ちょうどの文字数はエラーにならないこと
           expect(
-            await validateDto(CreateCityDto, {
-              ...validCreatePlain,
+            await validateDto(FindAllDistrictsQueryDto, {
+              ...plainObj,
               [property]: 'a'.repeat(max),
             }),
           ).toEqual([]);
           // 検証: 上限+1文字はエラーになること
           expect(
-            await validateDto(CreateCityDto, {
-              ...validCreatePlain,
+            await validateDto(FindAllDistrictsQueryDto, {
+              ...plainObj,
               [property]: 'a'.repeat(max + 1),
             }),
           ).toEqual([property]);
@@ -316,7 +325,8 @@ describe('□□□ District DTO TEST □□□', () => {
  * 戻り値はエラーになったプロパティ名の配列(例: ['slug'])。エラーが無ければ空配列 []。
  * 「どの項目がエラーになったか」だけを見れば十分なので、メッセージまでは検証しない。
  *
- * <T extends object>: 呼び出すときに決まる型(ジェネリクス)。渡したクラスから TypeScript が推論する
+ * メソッド毎に型を指定: <T extends object>: 呼び出すときに決まる型(ジェネリクス)。
+ * 渡したクラスから TypeScript が推論する。
  * cls: new () => T  : 「new すると T ができるもの」= T のクラス(CreateDistrictDto など)
  *
  * @param cls 検証するDTOのクラス(例: CreateDistrictDto)
