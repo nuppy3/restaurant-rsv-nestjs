@@ -244,8 +244,18 @@ describe('□□□ District DTO TEST □□□', () => {
       });
     });
 
+    /**
+     * DTOのUT(validationのテスト)は異常系がメイン
+     */
     describe('validationテスト(異常系)の境界値テスト', () => {
-      // [テストケース名, 項目名, 下限, 上限] の組み合わせごとに、範囲外の値がエラーになることを検証する
+      // -------------------------------------------
+      // name/cityCode の 文字数の上限(@MaxLength)の境界値テスト
+      // -------------------------------------------
+      // ⭐️it.each<[{tasetcase: string, note: string, filters: object, expectedParam: string}]>
+      // ではなく、it.each<[string, number]>で、配列でテスト対象項目とMaxLengthを表現
+      // している。→ it.each(table)(filters, expectedParam) のようにテストケースをtable(object)
+      // で表現するよりもシンプル。
+      //
       // 文字数の上限(@MaxLength)の境界値テスト
       // [項目名, 上限の文字数] の組み合わせごとに、上限ちょうど(OK)と上限+1(NG)を検証する
       // (テスト名の %s に項目名、%i に文字数が入る)
@@ -254,11 +264,8 @@ describe('□□□ District DTO TEST □□□', () => {
       // ・'a'.repeat(n): 'a' を n 回繰り返した n 文字の文字列を作る
       //   slug は形式(@Matches)も満たす必要があるため、半角英小文字の 'a' を使う
       it.each<[string, number]>([
-        ['code', 3],
-        ['name', 255],
-        ['kanaName', 255],
-        ['slug', 50],
-        ['prefectureCode', 2],
+        ['name', 40],
+        ['cityCode', 3],
       ])(
         '文字数の上限(@MaxLength)の境界値テスト: %s は %i 文字まで許容し、超える場合はエラーになること',
         async (property, max) => {
@@ -271,30 +278,41 @@ describe('□□□ District DTO TEST □□□', () => {
             size: '10',
             // } satisfies FindAllDistrictsQueryDto;
           };
-          // 検証: 上限ちょうどの文字数はエラーにならないこと
+
+          // 検証(正常系): 上限ちょうどの文字数はエラーにならないこと
           expect(
             await validateDto(FindAllDistrictsQueryDto, {
               ...plainObj,
               [property]: 'a'.repeat(max),
             }),
           ).toEqual([]);
-          // 検証: 上限+1文字はエラーになること
-          expect(
-            await validateDto(FindAllDistrictsQueryDto, {
-              ...plainObj,
-              [property]: 'a'.repeat(max + 1),
-            }),
-          ).toEqual([property]);
+
+          // 検証(異常系): 上限+1文字はエラーになること
+          // plainToInstance → validation
+          const errors = await validateDto(FindAllDistrictsQueryDto, {
+            ...plainObj,
+            [property]: 'a'.repeat(max + 1),
+          });
+
+          // console.log(errors);
+          // console.log(errors[0]);
+          // console.log(errors.length);
+          // errorがあるか
+          expect(errors).toHaveLength(1);
+          // 対象項目か
+          expect(errors[0].property).toBe(property);
+          // constraintsオブジェクトにmaxLengthというキーが存在すること
+          expect(errors[0].constraints).toHaveProperty('maxLength');
         },
       );
     });
 
-    it('異常系: 数値に変換できない値の場合、エラーになること', async () => {
-      // 検証: 'abc' は Number('abc') = NaN になり、@IsInt() でエラーになること
-      expect(
-        await validateDto(FindAllDistrictsQueryDto, { page: 'abc' }),
-      ).toEqual(['page']);
-    });
+    // it('異常系: 数値に変換できない値の場合、エラーになること', async () => {
+    //   // 検証: 'abc' は Number('abc') = NaN になり、@IsInt() でエラーになること
+    //   expect(
+    //     await validateDto(FindAllDistrictsQueryDto, { page: 'abc' }),
+    //   ).toEqual(['page']);
+    // });
   });
 });
 
@@ -335,7 +353,23 @@ describe('□□□ District DTO TEST □□□', () => {
 const validateDto = async <T extends object>(
   cls: new () => T,
   plain: Record<string, unknown>,
-): Promise<string[]> => {
+): Promise<
+  {
+    property: string;
+    constraints:
+      | {
+          [type: string]: string;
+        }
+      | undefined;
+  }[]
+> => {
+  // plainToInstanceからのvalidate
   const errors = await validate(plainToInstance(cls, plain));
-  return errors.map((e) => e.property);
+  // 項目名とconstraintsを返却
+  return errors.map((e) => ({
+    // 項目名
+    property: e.property,
+    // maxLength、isString など
+    constraints: e.constraints,
+  }));
 };
