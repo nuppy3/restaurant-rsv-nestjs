@@ -8,6 +8,7 @@ import { DistrictStatus } from './../../../domain/districts.model';
 
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
+import { PAGINATION } from '../../../../common/constants/pagination.constants';
 import { FindAllDistrictsQueryDto } from './district.dto';
 
 describe('□□□ District DTO TEST □□□', () => {
@@ -246,8 +247,9 @@ describe('□□□ District DTO TEST □□□', () => {
 
     /**
      * DTOのUT(validationのテスト)は異常系がメイン
+     * 境界値テストの中で、正常系＋異常系のテストを行う。
      */
-    describe('validationテスト(異常系)の境界値テスト', () => {
+    describe('validationテストの境界値テスト', () => {
       // -------------------------------------------
       // name/cityCode の 文字数の上限(@MaxLength)の境界値テスト
       // -------------------------------------------
@@ -294,9 +296,6 @@ describe('□□□ District DTO TEST □□□', () => {
             [property]: 'a'.repeat(max + 1),
           });
 
-          // console.log(errors);
-          // console.log(errors[0]);
-          // console.log(errors.length);
           // errorがあるか
           expect(errors).toHaveLength(1);
           // 対象項目か
@@ -305,6 +304,155 @@ describe('□□□ District DTO TEST □□□', () => {
           expect(errors[0].constraints).toHaveProperty('maxLength');
         },
       );
+
+      // -------------------------------------------
+      // status の Enum(@IsEnum)テスト
+      // -------------------------------------------
+      // [テスト対象項目, テスト対象値, 正常(true)/異常(false)]
+      it.each<[string, string, boolean]>([
+        ['status', DistrictStatus.EDITING, true],
+        ['status', DistrictStatus.PUBLISHED, true],
+        ['status', DistrictStatus.SUSPENDED, true],
+        ['status', 'hogehoge', false],
+      ])(
+        'Enum(@IsEnum)のテスト: %s が 不正なenum値の場合はエラーになること',
+        async (property, status, expected) => {
+          // dto(Plainオブジェクト)
+          const plainObj = {
+            name: '恵比寿',
+            status: DistrictStatus.SUSPENDED,
+            cityCode: '001',
+            page: '2',
+            size: '10',
+            // } satisfies FindAllDistrictsQueryDto;
+          };
+
+          // 正常ケース or 異常ケース
+          if (expected) {
+            // 検証(正常系): DistrictStatusの場合はエラーにならないこと
+            expect(
+              await validateDto(FindAllDistrictsQueryDto, {
+                ...plainObj,
+                [property]: status,
+              }),
+            ).toEqual([]);
+          } else {
+            // 検証(異常系): DistrictStatus以外の場合はエラー
+            // plainToInstance → validation
+            const errors = await validateDto(FindAllDistrictsQueryDto, {
+              ...plainObj,
+              [property]: status,
+            });
+
+            // errorがあるか
+            expect(errors).toHaveLength(1);
+            // 対象項目か
+            expect(errors[0].property).toBe(property);
+            // constraintsオブジェクトにmaxLengthというキーが存在すること
+            expect(errors[0].constraints).toHaveProperty('isEnum');
+          }
+        },
+      );
+
+      // -------------------------------------------
+      // size/page の バリエーションテスト（@Min/@Max/@IsInt）
+      // -------------------------------------------
+      // [テストケース, テスト対象項目, テスト対象値, constraint(isInt/max/min), 正常(true)/異常(false)]
+      it.each<[string, string, string, string, boolean]>([
+        [
+          'size が @Min未満の場合、エラー',
+          'size',
+          String(PAGINATION.MIN_PAGE_SIZE - 1),
+          'min',
+          false,
+        ],
+        [
+          'size が @Max超過の場合、エラー',
+          'size',
+          String(PAGINATION.MAX_PAGE_SIZE + 1),
+          'max',
+          false,
+        ],
+        [
+          'size が @Min以上の場合(正常系)',
+          'size',
+          String(PAGINATION.MIN_PAGE_SIZE),
+          'min',
+          true,
+        ],
+        [
+          'size が @Max以下の場合(正常系)',
+          'size',
+          String(PAGINATION.MAX_PAGE_SIZE),
+          'min',
+          true,
+        ],
+        [
+          'page が @Min未満の場合、エラー',
+          'page',
+          String(PAGINATION.MIN_PAGE - 1),
+          'min',
+          false,
+        ],
+        [
+          'page が @Max超過の場合、エラー',
+          'page',
+          String(PAGINATION.MAX_PAGE + 1),
+          'max',
+          false,
+        ],
+        [
+          'page が @Min以上(正常系)',
+          'page',
+          String(PAGINATION.MIN_PAGE),
+          'min',
+          true,
+        ],
+        [
+          'page が @Max以下(正常系)',
+          'page',
+          String(PAGINATION.MAX_PAGE),
+          'min',
+          true,
+        ],
+        // ['size', DistrictStatus.SUSPENDED, true],
+        // ['status', 'hogehoge', false],
+      ])('%s', async (testCase, property, targetVal, constraint, expected) => {
+        // dto(Plainオブジェクト)
+        const plainObj = {
+          name: '恵比寿',
+          status: DistrictStatus.SUSPENDED,
+          cityCode: '001',
+          page: '2',
+          size: '10',
+          // } satisfies FindAllDistrictsQueryDto;
+        };
+
+        // 正常ケース or 異常ケース
+        if (expected) {
+          // 検証(正常系): DistrictStatusの場合はエラーにならないこと
+          expect(
+            await validateDto(FindAllDistrictsQueryDto, {
+              ...plainObj,
+              [property]: targetVal,
+            }),
+          ).toEqual([]);
+        } else {
+          // 検証(異常系): DistrictStatus以外の場合はエラー
+          // plainToInstance → validation
+          const errors = await validateDto(FindAllDistrictsQueryDto, {
+            ...plainObj,
+            [property]: targetVal,
+          });
+
+          // errorがあるか
+          expect(errors).toHaveLength(1);
+          // 対象項目か
+          expect(errors[0].property).toBe(property);
+          // constraintsオブジェクトに期待するキー(max,minなど)が存在すること
+          expect(errors[0].constraints).toHaveProperty(constraint);
+        }
+      });
     });
 
     // it('異常系: 数値に変換できない値の場合、エラーになること', async () => {
