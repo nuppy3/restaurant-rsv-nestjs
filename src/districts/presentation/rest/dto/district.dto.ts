@@ -135,6 +135,9 @@ export class DistrictResponseDto implements DistrictResponseShape {
 
   @Expose()
   cityId!: string;
+
+  @Expose()
+  cityName!: string;
 }
 
 /**
