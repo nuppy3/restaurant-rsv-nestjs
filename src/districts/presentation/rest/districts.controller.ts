@@ -7,6 +7,7 @@ import {
   DistrictResponseDto,
   FindAllDistrictsQueryDto,
   PaginatedDistrictResponseDto,
+  PaginationMetaDto,
 } from './dto/district.dto';
 
 @Controller('districts')
@@ -42,8 +43,14 @@ export class DistrictsController {
     // Model[] → DTO[] に変換し、ページ情報と合わせて返す
     // plainToInstance()からのinstanceToPlain()
     return new PaginatedDistrictResponseDto(
+      // plainToInstance → instanceToPlain → Response DTO
       this.toResponseDto(paginated.data),
-      paginated.meta,
+      // Read Model Meta Data → Meta DTO
+      new PaginationMetaDto(
+        paginated.meta.totalCount,
+        paginated.meta.page,
+        paginated.meta.size,
+      ),
     );
   }
 

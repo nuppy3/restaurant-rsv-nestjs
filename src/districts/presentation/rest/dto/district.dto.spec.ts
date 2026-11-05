@@ -415,6 +415,23 @@ describe('□□□ District DTO TEST □□□', () => {
           'min',
           true,
         ],
+        //-----------------------------
+        // @IsInt(整数のみ許容) のテスト
+        //-----------------------------
+        [
+          '異常系: sizeが数値に変換できない値の場合、エラーになること',
+          'size',
+          'abc',
+          'min',
+          false,
+        ],
+        [
+          '異常系: pageが数値に変換できない値の場合、エラーになること',
+          'page',
+          'xyz',
+          'min',
+          false,
+        ],
         // ['size', DistrictStatus.SUSPENDED, true],
         // ['status', 'hogehoge', false],
       ])('%s', async (testCase, property, targetVal, constraint, expected) => {
