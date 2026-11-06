@@ -255,7 +255,12 @@ describe('■■■ FindAllRegionsQueryDto TEST ■■■', () => {
 
   describe('sizeのエラーチェック(@IsInt,@Min,@Max)', () => {
     // it.each([{}])('', async ({}) => {});
-    it.each([
+    it.each<{
+      testCase: string;
+      note: string;
+      filters: object;
+      expectedParam: string;
+    }>([
       {
         testCase: '@IsInt: sizeが少数あり(Intじゃない)',
         note: 'isInt エラーが発生すること',

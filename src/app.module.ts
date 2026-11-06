@@ -11,6 +11,7 @@ import { DomainExceptionFilter } from './common/presentation/filters/domain-exce
 import { PrefecturesModule } from './prefectures/prefectures.module';
 import { RegionsModule } from './regions/regions.module';
 import { StoresModule } from './stores/stores.module';
+import { DistrictsModule } from './districts/districts.module';
 
 @Module({
   // featureモジュール(子モジュール)、外部モジュールの登録
@@ -40,6 +41,7 @@ import { StoresModule } from './stores/stores.module';
     PrefecturesModule,
     RegionsModule,
     CitiesModule,
+    DistrictsModule,
   ],
   // コントローラー
   controllers: [],
