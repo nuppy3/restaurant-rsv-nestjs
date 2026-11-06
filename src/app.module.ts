@@ -11,7 +11,6 @@ import { DomainExceptionFilter } from './common/presentation/filters/domain-exce
 import { PrefecturesModule } from './prefectures/prefectures.module';
 import { RegionsModule } from './regions/regions.module';
 import { StoresModule } from './stores/stores.module';
-import { DistrictsController } from './districts/presentation/rest/districts.controller';
 import { DistrictsModule } from './districts/districts.module';
 
 @Module({
@@ -45,7 +44,7 @@ import { DistrictsModule } from './districts/districts.module';
     DistrictsModule,
   ],
   // コントローラー
-  controllers: [DistrictsController],
+  controllers: [],
   // DI対象
   // NestJSでのDomainExceptionFilterのグローバル設定(main.tsでの設定も可能であるが、
   // app.module.tsでの設定がよい)
