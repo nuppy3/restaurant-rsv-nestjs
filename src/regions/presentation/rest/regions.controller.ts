@@ -130,7 +130,7 @@ export class RegionsController {
   /**
    * エリア情報詳細取得： エリアIDに関連するエリア情報詳細を取得し返却します。
    *                   存在しない場合は404。
-   * @param id エリア情報
+   * @param id エリアID
    * @returns エリア情報詳細(IDに関連する)
    */
   @Get(':id')
