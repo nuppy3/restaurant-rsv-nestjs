@@ -64,8 +64,13 @@ export class DistrictsController {
   async findAll(): Promise<DistrictOptionResponseDto[]> {
     // 地区一覧取得(Read Model[])
     const readModels = await this.districtsQueryService.findAll();
-    // read model[] (plainToInstance → instanceToPlain) → dto[]
-    return this.toResponseDto(readModels);
+    // read model(optional read model)[]  → dto[]
+    return instanceToPlain(
+      plainToInstance(DistrictOptionResponseDto, readModels, {
+        excludeExtraneousValues: true,
+      }),
+      { exposeUnsetFields: false },
+    ) as DistrictOptionResponseDto[];
   }
 
   /**
