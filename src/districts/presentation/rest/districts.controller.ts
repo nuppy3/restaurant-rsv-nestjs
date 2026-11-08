@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Param, ParseUUIDPipe, Query } from '@nestjs/common';
 import { instanceToPlain, plainToInstance } from 'class-transformer';
 import { DistrictFilter } from '../../../districts/query/district.filter';
 import { DistrictsQueryService } from './../../query/districts.query.service';
@@ -64,17 +64,31 @@ export class DistrictsController {
   async findAll(): Promise<DistrictOptionResponseDto[]> {
     // 地区一覧取得(Read Model[])
     const readModels = await this.districtsQueryService.findAll();
-
-    // read model → dto
-    // instanceToPlain()を咬まさないと、DTOのgetter(statusLabelなど)が機能しなかったので追加している。
-    const data = instanceToPlain(
+    // read model(optional read model)[]  → dto[]
+    return instanceToPlain(
       plainToInstance(DistrictOptionResponseDto, readModels, {
         excludeExtraneousValues: true,
       }),
       { exposeUnsetFields: false },
     ) as DistrictOptionResponseDto[];
+  }
 
-    return data;
+  /**
+   * idに紐づく地区の詳細を取得する。存在しない場合は404
+   * GET /districts/:id
+   * ParseUUIDPipe: idがUUIDの形式でなければ、Serviceを呼ぶ前に400を返す
+   *
+   * @param id 地区Id
+   * @returns 地区情報詳細(IDに関連する)
+   */
+  @Get(':id')
+  async findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<DistrictResponseDto> {
+    // 地区の詳細(Read Model: 都市名・作成日時・更新日時付き)を取得
+    const readModel = await this.districtsQueryService.getDetailByIdOrThrow(id);
+    // readModel (plainToInstance → instanceToPlain) → DTO
+    return this.toResponseDto(readModel);
   }
 
   /**
