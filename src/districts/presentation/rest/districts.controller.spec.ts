@@ -8,12 +8,14 @@
 //   ログインユーザーは、認証を通過した後の req を自分で作って渡す
 // ※ テストで使う共通データ(DISTRICT_ID など)とモックデータの作成ヘルパー(buildMockDistrict など)はファイル末尾に定義している
 
+import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PaginatedResult } from '../../../common/interfaces/paginated-result.interface';
 import { DistrictStatus } from '../../../districts/domain/districts.model';
 import { DistrictFilter } from '../../../districts/query/district.filter';
 import { DistrictsQueryService } from '../../../districts/query/districts.query.service';
+import { DistrictDetailReadModel } from '../../../districts/query/read-model/district-detail.read-model';
 import { DistrictListReadModel } from '../../../districts/query/read-model/district-list.read-model';
 import { DistrictOptionReadModel } from '../../../districts/query/read-model/district-option.read-model';
 import { DistrictsController } from './districts.controller';
@@ -28,7 +30,7 @@ import {
 const mockDistrictsQueryService = {
   findAllPaginated: jest.fn(),
   findAll: jest.fn(),
-  // getDetailByIdOrThrow: jest.fn(),
+  getDetailByIdOrThrow: jest.fn(),
   // getDetailByCodeOrThrow: jest.fn(),
 };
 
@@ -226,6 +228,86 @@ describe('■■■ DistrictsController test ■■■', () => {
       // rejects.toBe: モックが投げたエラー(connectionError)が、別のエラーに包み直されず
       //               そのまま(同じインスタンスで)伝わっていることを確かめる
       await expect(districtsController.findAll()).rejects.toBe(connectionError);
+    });
+  });
+
+  //--------------------------------------
+  // findOne() test: GET /:id
+  //--------------------------------------
+  describe('findOne', () => {
+    it('正常系: ReadModelが、DistrictResponseDto(全項目)に変換されて返却されること', async () => {
+      // service mock data 作成: Read Model
+      mockDistrictsQueryService.getDetailByIdOrThrow.mockResolvedValue({
+        ...buildMockDistrictReadModel(),
+        // Detail Read Modelなので以下を追加
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        updatedAt: new Date('2026-01-02T00:00:00Z'),
+      } satisfies DistrictDetailReadModel);
+
+      // test対象controller呼び出し
+      const result = await districtsController.findOne(DISTRICT_ID);
+
+      // 検証: レスポンスの形に変換され(statusLabelが付く)、createdAt / updatedAt は返らないこと
+      expect(result).toEqual({
+        id: DISTRICT_ID,
+        code: '00001',
+        name: '銀座',
+        kanaName: 'ギンザ',
+        slug: 'ginza',
+        status: DistrictStatus.PUBLISHED,
+        statusLabel: '反映中',
+        sortOrder: 1,
+        cityId: CITY_ID,
+        cityName: '東京',
+      } satisfies DistrictResponseDto);
+
+      // 検証
+      expect(
+        mockDistrictsQueryService.getDetailByIdOrThrow,
+      ).toHaveBeenCalledWith(DISTRICT_ID);
+    });
+
+    it('異常系： idに紐づく地区情報なし（データ0件)の場合、NotFoundExceptionを伝播', async () => {
+      // 引数
+      const id = 'xxxxxxxx-0ba4-xxxx-xxxx-473aa26e457a'; // 適当な値
+
+      // mock data set (NotFoundException
+      mockDistrictsQueryService.getDetailByIdOrThrow.mockRejectedValue(
+        new NotFoundException(
+          `idに関連する地区情報が存在しません!! DistrictId: ${id}`,
+        ),
+      );
+
+      // 検証: NotFoundException
+      await expect(districtsController.findOne(id)).rejects.toThrow(
+        new NotFoundException(
+          `idに関連する地区情報が存在しません!! DistrictId: ${id}`,
+        ),
+      );
+    });
+
+    it('異常系: QueryServiceが想定外のエラー(DB接続エラーなど)を投げた場合、そのまま投げられること(エラー伝搬)', async () => {
+      // service mock data 作成: DB接続エラー
+      // mockCitiesQueryService.findAllPaginated.mockRejectedValue(
+      //   new Error('Database connection failed'),
+      // );
+      // 上記でもいいが以下を採用
+      const connectionError = new PrismaClientKnownRequestError(
+        "Can't reach database server",
+        { code: 'P1001', clientVersion: '5.0.0' },
+      );
+      jest
+        .spyOn(mockDistrictsQueryService, 'getDetailByIdOrThrow')
+        .mockRejectedValue(connectionError);
+
+      // test対象controller呼び出し、結果検証
+      // Controllerは例外をcatchしないので、握りつぶさずにそのまま伝わること
+      // (HTTPステータス500への変換はグローバルのDomainExceptionFilterが行う)
+      // rejects.toBe: モックが投げたエラー(connectionError)が、別のエラーに包み直されず
+      //               そのまま(同じインスタンスで)伝わっていることを確かめる
+      await expect(districtsController.findOne(DISTRICT_ID)).rejects.toBe(
+        connectionError,
+      );
     });
   });
 });
