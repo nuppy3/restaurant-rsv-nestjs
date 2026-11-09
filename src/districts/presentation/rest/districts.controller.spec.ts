@@ -8,6 +8,7 @@
 //   ログインユーザーは、認証を通過した後の req を自分で作って渡す
 // ※ テストで使う共通データ(DISTRICT_ID など)とモックデータの作成ヘルパー(buildMockDistrict など)はファイル末尾に定義している
 
+import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { PaginatedResult } from '../../../common/interfaces/paginated-result.interface';
@@ -28,7 +29,7 @@ import {
 const mockDistrictsQueryService = {
   findAllPaginated: jest.fn(),
   findAll: jest.fn(),
-  // getDetailByIdOrThrow: jest.fn(),
+  getDetailByIdOrThrow: jest.fn(),
   // getDetailByCodeOrThrow: jest.fn(),
 };
 
@@ -226,6 +227,122 @@ describe('■■■ DistrictsController test ■■■', () => {
       // rejects.toBe: モックが投げたエラー(connectionError)が、別のエラーに包み直されず
       //               そのまま(同じインスタンスで)伝わっていることを確かめる
       await expect(districtsController.findAll()).rejects.toBe(connectionError);
+    });
+
+    it('異常系： idに紐づく地区情報なし（データ0件)の場合、NotFoundExceptionを伝播', async () => {
+      // 引数
+      const id = 'xxxxxxxx-0ba4-xxxx-xxxx-473aa26e457a'; // 適当な値
+
+      // mock data set (NotFoundException
+      mockDistrictsQueryService.getDetailByIdOrThrow.mockRejectedValue(
+        new NotFoundException(
+          `idに関連する地区情報が存在しません!! DistrictId: ${id}`,
+        ),
+      );
+
+      // 検証: NotFoundException
+      await expect(
+        mockDistrictsQueryService.getDetailByIdOrThrow,
+      ).rejects.toThrow(
+        new NotFoundException(
+          `idに関連する地区情報が存在しません!! DistrictId: ${id}`,
+        ),
+      );
+    });
+  });
+
+  //--------------------------------------
+  // findOne() test: GET /:id
+  //--------------------------------------
+  describe('findOne', () => {
+    it('正常系: ReadModelが、DistrictResponseDto(全項目)に変換されて返却されること', async () => {
+      // service mock data 作成: Read Model
+      mockDistrictsQueryService.getDetailByIdOrThrow.mockResolvedValue(
+        buildMockDistrictReadModel(),
+      );
+
+      // test対象controller呼び出し
+      const result = await districtsController.findOne(DISTRICT_ID);
+
+      // 検証
+      expect(
+        mockDistrictsQueryService.getDetailByIdOrThrow,
+      ).toHaveBeenCalledWith(DISTRICT_ID);
+
+      // 検証: data はレスポンスの形に変換され(statusLabelが付く)、meta はそのまま返ること
+      expect(result).toEqual({
+        id: DISTRICT_ID,
+        code: '00001',
+        name: '銀座',
+        kanaName: 'ギンザ',
+        slug: 'ginza',
+        status: DistrictStatus.PUBLISHED,
+        statusLabel: '反映中',
+        sortOrder: 1,
+        cityId: CITY_ID,
+        cityName: '東京',
+      } satisfies DistrictResponseDto);
+    });
+
+    it('正常系: クエリが未指定の場合、name/statusなどの項目はundefinedのままQueryServiceに渡されること', async () => {
+      // service mock data 作成: 0件(引数の検証だけをするため、中身はなんでもいい)
+      mockDistrictsQueryService.findAllPaginated.mockResolvedValue({
+        data: [],
+        meta: { totalCount: 0, page: 1, size: 20 },
+      });
+
+      // test対象controller呼び出し(GET /cities)
+      await districtsController.findAllPaginated({});
+
+      // 検証: 未指定はundefined(デフォルト値はQueryServiceの中で決まる)
+      expect(mockDistrictsQueryService.findAllPaginated).toHaveBeenCalledWith({
+        name: undefined,
+        status: undefined,
+        cityCode: undefined,
+        page: undefined,
+        size: undefined,
+      } satisfies DistrictFilter);
+    });
+
+    it('正常系: 該当データが0件の場合、dataが空配列で返却されること', async () => {
+      // service mock data 作成: 0件(dataが空配列)
+      mockDistrictsQueryService.findAllPaginated.mockResolvedValue({
+        data: [],
+        meta: { totalCount: 0, page: 1, size: 20 },
+      });
+
+      // test対象controller呼び出し
+      const result = await districtsController.findAllPaginated({});
+
+      // 検証: dataは空配列のまま(nullやundefinedにならない)、metaはそのまま返ること
+      expect(result).toEqual({
+        data: [],
+        meta: { totalCount: 0, page: 1, size: 20 },
+      });
+    });
+
+    it('異常系: QueryServiceが想定外のエラー(DB接続エラーなど)を投げた場合、そのまま投げられること(エラー伝搬)', async () => {
+      // service mock data 作成: DB接続エラー
+      // mockCitiesQueryService.findAllPaginated.mockRejectedValue(
+      //   new Error('Database connection failed'),
+      // );
+      // 上記でもいいが以下を採用
+      const connectionError = new PrismaClientKnownRequestError(
+        "Can't reach database server",
+        { code: 'P1001', clientVersion: '5.0.0' },
+      );
+      jest
+        .spyOn(mockDistrictsQueryService, 'findAllPaginated')
+        .mockRejectedValue(connectionError);
+
+      // test対象controller呼び出し、結果検証
+      // Controllerは例外をcatchしないので、握りつぶさずにそのまま伝わること
+      // (HTTPステータス500への変換はグローバルのDomainExceptionFilterが行う)
+      // rejects.toBe: モックが投げたエラー(connectionError)が、別のエラーに包み直されず
+      //               そのまま(同じインスタンスで)伝わっていることを確かめる
+      await expect(districtsController.findAllPaginated({})).rejects.toBe(
+        connectionError,
+      );
     });
   });
 });
