@@ -10,13 +10,15 @@
 
 import { Test } from '@nestjs/testing';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
-import { DistrictFilter } from 'src/districts/query/district.filter';
 import { PaginatedResult } from '../../../common/interfaces/paginated-result.interface';
 import { DistrictStatus } from '../../../districts/domain/districts.model';
+import { DistrictFilter } from '../../../districts/query/district.filter';
 import { DistrictsQueryService } from '../../../districts/query/districts.query.service';
 import { DistrictListReadModel } from '../../../districts/query/read-model/district-list.read-model';
+import { DistrictOptionReadModel } from '../../../districts/query/read-model/district-option.read-model';
 import { DistrictsController } from './districts.controller';
 import {
+  DistrictOptionResponseDto,
   DistrictResponseDto,
   PaginatedDistrictResponseDto,
 } from './dto/district.dto';
@@ -25,6 +27,7 @@ import {
 // findAllPaginated / getDetailByIdOrThrow / getDetailByCodeOrThrow は Read Model を返す
 const mockDistrictsQueryService = {
   findAllPaginated: jest.fn(),
+  findAll: jest.fn(),
   // getDetailByIdOrThrow: jest.fn(),
   // getDetailByCodeOrThrow: jest.fn(),
 };
@@ -57,7 +60,7 @@ describe('■■■ DistrictsController test ■■■', () => {
     it('正常系: クエリがFilterに詰め替えられ、dto(data / meta)が返却されること', async () => {
       // service mock data 作成: 一覧(Read Model)とページ情報
       mockDistrictsQueryService.findAllPaginated.mockResolvedValue(
-        createPrismaMockData(),
+        createMockReadModel(),
       );
 
       // test対象controller呼び出し(GET /districts?page=2&size=10)
@@ -119,7 +122,7 @@ describe('■■■ DistrictsController test ■■■', () => {
       });
     });
 
-    it('異常系: QueryServiceが想定外のエラー(DB接続エラーなど)を投げた場合、そのまま投げられること', async () => {
+    it('異常系: QueryServiceが想定外のエラー(DB接続エラーなど)を投げた場合、そのまま投げられること(エラー伝搬)', async () => {
       // service mock data 作成: DB接続エラー
       // mockCitiesQueryService.findAllPaginated.mockRejectedValue(
       //   new Error('Database connection failed'),
@@ -143,14 +146,97 @@ describe('■■■ DistrictsController test ■■■', () => {
       );
     });
   });
+
+  //--------------------------------------
+  // findAll() test: GET /options
+  //--------------------------------------
+  describe('findAll', () => {
+    it('正常系: optionReadModel配列が、DistrictOptionResponseDto(全項目)に変換されて返却されること', async () => {
+      // mock data 作成
+      const mockReadModels = [
+        {
+          id: DISTRICT_ID,
+          code: DISTRICT_CODE,
+          name: '銀座',
+        } satisfies DistrictOptionReadModel,
+        {
+          id: '6c7d8e9f-0a12-4b3c-9d4e-5f6071829304',
+          code: '00002',
+          name: '恵比寿',
+        } satisfies DistrictOptionReadModel,
+        {
+          id: '7d8e9f0a-1b23-4c4d-8e5f-607182930415',
+          code: '00003',
+          name: '広尾',
+        } satisfies DistrictOptionReadModel,
+      ] satisfies DistrictOptionReadModel[];
+
+      // mock data セット
+      mockDistrictsQueryService.findAll.mockResolvedValue(mockReadModels);
+
+      // test 対象 controller呼び出し
+      const results = await districtsController.findAll();
+
+      // 検証
+      expect(results).toEqual([
+        {
+          id: DISTRICT_ID,
+          code: DISTRICT_CODE,
+          name: '銀座',
+        } satisfies DistrictOptionResponseDto,
+        {
+          id: '6c7d8e9f-0a12-4b3c-9d4e-5f6071829304',
+          code: '00002',
+          name: '恵比寿',
+        } satisfies DistrictOptionResponseDto,
+        {
+          id: '7d8e9f0a-1b23-4c4d-8e5f-607182930415',
+          code: '00003',
+          name: '広尾',
+        } satisfies DistrictOptionResponseDto,
+      ] satisfies DistrictOptionResponseDto[]);
+    });
+
+    it('正常系: 該当データが0件の場合、dataが空配列で返却されること', async () => {
+      // mock data セット (空配列)
+      mockDistrictsQueryService.findAll.mockResolvedValue([]);
+      // test 対象 controller呼び出し
+      const results = await districtsController.findAll();
+      // 検証
+      expect(results).toEqual([]);
+    });
+
+    it('異常系: QueryServiceが想定外のエラー(DB接続エラーなど)を投げた場合、そのまま投げられること(エラー伝搬)', async () => {
+      // service mock data 作成: DB接続エラー
+      // mockCitiesQueryService.findAllPaginated.mockRejectedValue(
+      //   new Error('Database connection failed'),
+      // );
+      // 上記でもいいが以下を採用
+      const connectionError = new PrismaClientKnownRequestError(
+        "Can't reach database server",
+        { code: 'P1001', clientVersion: '5.0.0' },
+      );
+      jest
+        .spyOn(mockDistrictsQueryService, 'findAll')
+        .mockRejectedValue(connectionError);
+
+      // test対象controller呼び出し、結果検証
+      // Controllerは例外をcatchしないので、握りつぶさずにそのまま伝わること
+      // (HTTPステータス500への変換はグローバルのDomainExceptionFilterが行う)
+      // rejects.toBe: モックが投げたエラー(connectionError)が、別のエラーに包み直されず
+      //               そのまま(同じインスタンスで)伝わっていることを確かめる
+      await expect(districtsController.findAll()).rejects.toBe(connectionError);
+    });
+  });
 });
 
 // -----------------------------------------------
 // テストデータ: 東京に紐づく銀座
 // -----------------------------------------------
 const DISTRICT_ID = '5b6c7d8e-9f01-4a2b-8c3d-4e5f60718293';
+const DISTRICT_CODE = '00001';
 const CITY_ID = '7c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f';
-const CITY_CODE = '00001';
+const CITY_CODE = '001';
 
 /**
  * Query ServiceのPaginated Read Modelのモックデータを作成するヘルパー
@@ -159,7 +245,7 @@ const CITY_CODE = '00001';
  * 東京の7地区(seed と同じデータ。sortOrder の昇順)。id は地区ごとに別の値にしている
  * (一覧の検証で、どの地区のRead Modelかを id でも見分けられるようにするため)
  */
-const createPrismaMockData = (): PaginatedResult<DistrictListReadModel> => {
+const createMockReadModel = (): PaginatedResult<DistrictListReadModel> => {
   const readModels = [
     // 銀座のレコード
     buildMockDistrictReadModel(),
@@ -238,7 +324,7 @@ const buildMockDistrictReadModel = (
   overrides: Partial<DistrictListReadModel> = {},
 ): DistrictListReadModel => ({
   id: DISTRICT_ID,
-  code: CITY_CODE,
+  code: DISTRICT_CODE,
   name: '銀座',
   kanaName: 'ギンザ',
   slug: 'ginza',
