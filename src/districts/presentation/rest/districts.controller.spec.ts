@@ -151,12 +151,12 @@ describe('■■■ DistrictsController test ■■■', () => {
   // findAll() test: GET /options
   //--------------------------------------
   describe('findAll', () => {
-    it('正常系: optionReadModel配列が、DistrictOptionResponseDto(全項目)に変換されが返却されること', async () => {
+    it('正常系: optionReadModel配列が、DistrictOptionResponseDto(全項目)に変換されて返却されること', async () => {
       // mock data 作成
       const mockReadModels = [
         {
           id: DISTRICT_ID,
-          code: CITY_CODE,
+          code: DISTRICT_CODE,
           name: '銀座',
         } satisfies DistrictOptionReadModel,
         {
@@ -181,7 +181,7 @@ describe('■■■ DistrictsController test ■■■', () => {
       expect(results).toEqual([
         {
           id: DISTRICT_ID,
-          code: CITY_CODE,
+          code: DISTRICT_CODE,
           name: '銀座',
         } satisfies DistrictOptionResponseDto,
         {
@@ -234,8 +234,9 @@ describe('■■■ DistrictsController test ■■■', () => {
 // テストデータ: 東京に紐づく銀座
 // -----------------------------------------------
 const DISTRICT_ID = '5b6c7d8e-9f01-4a2b-8c3d-4e5f60718293';
+const DISTRICT_CODE = '00001';
 const CITY_ID = '7c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f';
-const CITY_CODE = '00001';
+const CITY_CODE = '001';
 
 /**
  * Query ServiceのPaginated Read Modelのモックデータを作成するヘルパー
@@ -323,7 +324,7 @@ const buildMockDistrictReadModel = (
   overrides: Partial<DistrictListReadModel> = {},
 ): DistrictListReadModel => ({
   id: DISTRICT_ID,
-  code: CITY_CODE,
+  code: DISTRICT_CODE,
   name: '銀座',
   kanaName: 'ギンザ',
   slug: 'ginza',
