@@ -15,6 +15,7 @@ import { PaginatedResult } from '../../../common/interfaces/paginated-result.int
 import { DistrictStatus } from '../../../districts/domain/districts.model';
 import { DistrictFilter } from '../../../districts/query/district.filter';
 import { DistrictsQueryService } from '../../../districts/query/districts.query.service';
+import { DistrictDetailReadModel } from '../../../districts/query/read-model/district-detail.read-model';
 import { DistrictListReadModel } from '../../../districts/query/read-model/district-list.read-model';
 import { DistrictOptionReadModel } from '../../../districts/query/read-model/district-option.read-model';
 import { DistrictsController } from './districts.controller';
@@ -228,6 +229,43 @@ describe('■■■ DistrictsController test ■■■', () => {
       //               そのまま(同じインスタンスで)伝わっていることを確かめる
       await expect(districtsController.findAll()).rejects.toBe(connectionError);
     });
+  });
+
+  //--------------------------------------
+  // findOne() test: GET /:id
+  //--------------------------------------
+  describe('findOne', () => {
+    it('正常系: ReadModelが、DistrictResponseDto(全項目)に変換されて返却されること', async () => {
+      // service mock data 作成: Read Model
+      mockDistrictsQueryService.getDetailByIdOrThrow.mockResolvedValue({
+        ...buildMockDistrictReadModel(),
+        // Detail Read Modelなので以下を追加
+        createdAt: new Date('2026-01-01T00:00:00Z'),
+        updatedAt: new Date('2026-01-02T00:00:00Z'),
+      } satisfies DistrictDetailReadModel);
+
+      // test対象controller呼び出し
+      const result = await districtsController.findOne(DISTRICT_ID);
+
+      // 検証: レスポンスの形に変換され(statusLabelが付く)、createdAt / updatedAt は返らないこと
+      expect(result).toEqual({
+        id: DISTRICT_ID,
+        code: '00001',
+        name: '銀座',
+        kanaName: 'ギンザ',
+        slug: 'ginza',
+        status: DistrictStatus.PUBLISHED,
+        statusLabel: '反映中',
+        sortOrder: 1,
+        cityId: CITY_ID,
+        cityName: '東京',
+      } satisfies DistrictResponseDto);
+
+      // 検証
+      expect(
+        mockDistrictsQueryService.getDetailByIdOrThrow,
+      ).toHaveBeenCalledWith(DISTRICT_ID);
+    });
 
     it('異常系： idに紐づく地区情報なし（データ0件)の場合、NotFoundExceptionを伝播', async () => {
       // 引数
@@ -241,84 +279,11 @@ describe('■■■ DistrictsController test ■■■', () => {
       );
 
       // 検証: NotFoundException
-      await expect(
-        mockDistrictsQueryService.getDetailByIdOrThrow,
-      ).rejects.toThrow(
+      await expect(districtsController.findOne(id)).rejects.toThrow(
         new NotFoundException(
           `idに関連する地区情報が存在しません!! DistrictId: ${id}`,
         ),
       );
-    });
-  });
-
-  //--------------------------------------
-  // findOne() test: GET /:id
-  //--------------------------------------
-  describe('findOne', () => {
-    it('正常系: ReadModelが、DistrictResponseDto(全項目)に変換されて返却されること', async () => {
-      // service mock data 作成: Read Model
-      mockDistrictsQueryService.getDetailByIdOrThrow.mockResolvedValue(
-        buildMockDistrictReadModel(),
-      );
-
-      // test対象controller呼び出し
-      const result = await districtsController.findOne(DISTRICT_ID);
-
-      // 検証
-      expect(
-        mockDistrictsQueryService.getDetailByIdOrThrow,
-      ).toHaveBeenCalledWith(DISTRICT_ID);
-
-      // 検証: data はレスポンスの形に変換され(statusLabelが付く)、meta はそのまま返ること
-      expect(result).toEqual({
-        id: DISTRICT_ID,
-        code: '00001',
-        name: '銀座',
-        kanaName: 'ギンザ',
-        slug: 'ginza',
-        status: DistrictStatus.PUBLISHED,
-        statusLabel: '反映中',
-        sortOrder: 1,
-        cityId: CITY_ID,
-        cityName: '東京',
-      } satisfies DistrictResponseDto);
-    });
-
-    it('正常系: クエリが未指定の場合、name/statusなどの項目はundefinedのままQueryServiceに渡されること', async () => {
-      // service mock data 作成: 0件(引数の検証だけをするため、中身はなんでもいい)
-      mockDistrictsQueryService.findAllPaginated.mockResolvedValue({
-        data: [],
-        meta: { totalCount: 0, page: 1, size: 20 },
-      });
-
-      // test対象controller呼び出し(GET /cities)
-      await districtsController.findAllPaginated({});
-
-      // 検証: 未指定はundefined(デフォルト値はQueryServiceの中で決まる)
-      expect(mockDistrictsQueryService.findAllPaginated).toHaveBeenCalledWith({
-        name: undefined,
-        status: undefined,
-        cityCode: undefined,
-        page: undefined,
-        size: undefined,
-      } satisfies DistrictFilter);
-    });
-
-    it('正常系: 該当データが0件の場合、dataが空配列で返却されること', async () => {
-      // service mock data 作成: 0件(dataが空配列)
-      mockDistrictsQueryService.findAllPaginated.mockResolvedValue({
-        data: [],
-        meta: { totalCount: 0, page: 1, size: 20 },
-      });
-
-      // test対象controller呼び出し
-      const result = await districtsController.findAllPaginated({});
-
-      // 検証: dataは空配列のまま(nullやundefinedにならない)、metaはそのまま返ること
-      expect(result).toEqual({
-        data: [],
-        meta: { totalCount: 0, page: 1, size: 20 },
-      });
     });
 
     it('異常系: QueryServiceが想定外のエラー(DB接続エラーなど)を投げた場合、そのまま投げられること(エラー伝搬)', async () => {
@@ -332,7 +297,7 @@ describe('■■■ DistrictsController test ■■■', () => {
         { code: 'P1001', clientVersion: '5.0.0' },
       );
       jest
-        .spyOn(mockDistrictsQueryService, 'findAllPaginated')
+        .spyOn(mockDistrictsQueryService, 'getDetailByIdOrThrow')
         .mockRejectedValue(connectionError);
 
       // test対象controller呼び出し、結果検証
@@ -340,7 +305,7 @@ describe('■■■ DistrictsController test ■■■', () => {
       // (HTTPステータス500への変換はグローバルのDomainExceptionFilterが行う)
       // rejects.toBe: モックが投げたエラー(connectionError)が、別のエラーに包み直されず
       //               そのまま(同じインスタンスで)伝わっていることを確かめる
-      await expect(districtsController.findAllPaginated({})).rejects.toBe(
+      await expect(districtsController.findOne(DISTRICT_ID)).rejects.toBe(
         connectionError,
       );
     });
