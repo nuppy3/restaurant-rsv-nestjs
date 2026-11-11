@@ -72,9 +72,11 @@ export class CitiesController {
    * codeに紐づく都市の詳細を取得する。存在しない場合は404
    * GET /cities/code/:code
    *
-   * ⚠️ GET :id より先に定義すること
-   *    NestJSは定義した順にルートを照合するため、:id を先に書くと
-   *    /cities/code/001 の「code」が :id として扱われてしまう(ParseUUIDPipeで400になる)
+   * memo: ルートの定義順について
+   *    :id はパスの区切り(/)1つ分にしか一致しないため、/cities/code/001(区切り2つ)は
+   *    :id に一致しない。そのため、code/:code は :id の前後どちらに定義してもよい。
+   *    一方、/cities/options のような区切り1つの固定ルートは、:id より前に定義すること
+   *    (後にすると 'options' が :id として扱われ、ParseUUIDPipe で400になる)
    */
   @Get('code/:code')
   async findByCode(@Param('code') code: string): Promise<CityResponseDto> {

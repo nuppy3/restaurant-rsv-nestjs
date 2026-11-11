@@ -87,7 +87,26 @@ export class DistrictsController {
   ): Promise<DistrictResponseDto> {
     // 地区の詳細(Read Model: 都市名・作成日時・更新日時付き)を取得
     const readModel = await this.districtsQueryService.getDetailByIdOrThrow(id);
-    // readModel (plainToInstance → instanceToPlain) → DTO
+    // readModel (plainToInstance → instanceToPlain) → DTO (@Expose()を利用し、作成日時・更新日時は除外)
+    return this.toResponseDto(readModel);
+  }
+
+  /**
+   * codeに紐づく地区の詳細を取得する。存在しない場合は404
+   * GET /districts/code/:code
+   *
+   * memo: ルートの定義順について
+   *    :id はパスの区切り(/)1つ分にしか一致しないため、/districts/code/001(区切り2つ)は
+   *    :id に一致しない。そのため、code/:code は :id の前後どちらに定義してもよい。
+   *    一方、/districts/options のような区切り1つの固定ルートは、:id より前に定義すること
+   *    (後にすると 'options' が :id として扱われ、ParseUUIDPipe で400になる)
+   */
+  @Get('code/:code')
+  async findByCode(@Param('code') code: string): Promise<DistrictResponseDto> {
+    // 地区の詳細(Read Model: 都市名・作成日時・更新日時付き)を取得
+    const readModel =
+      await this.districtsQueryService.getDetailByCodeOrThrow(code);
+    // ReadModel (plainToInstance → instanceToPlain) → DTO (@Expose()を利用し、作成日時・更新日時は除外)
     return this.toResponseDto(readModel);
   }
 
