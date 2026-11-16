@@ -1,9 +1,9 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { City as PrismaCity } from 'generated/prisma';
-import { DistrictStatus } from 'src/districts/domain/districts.model';
 import { PAGINATION } from '../../common/constants/pagination.constants';
 import { PaginatedResult } from '../../common/interfaces/paginated-result.interface';
+import { DistrictStatus } from '../../districts/domain/districts.model';
 import { PrismaService } from '../../prisma/prisma.service';
 import { City, CityStatus } from '../domain/cities.model';
 import type { CityRepositoryPort } from '../domain/city.repository.port';
@@ -193,6 +193,8 @@ export class CitiesQueryService {
           sortOrder: city.sortOrder,
           prefectureId: city.prefectureId ?? undefined,
           // districtsがnullの場合はundefined
+          // ただ、Prismaはデータが無い場合は空配列[]で返却されるので以下の条件ロジックは
+          // 不要だが念の為。
           ...(city.districts && {
             districts: city.districts.map((district) => ({
               id: district.id,

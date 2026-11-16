@@ -11,6 +11,7 @@ import {
 } from '../domain/city.repository.port';
 import { CitiesQueryService } from './cities.query.service';
 import { CityFilter } from './city.filter';
+import { CityTreeReadModel } from './read-model/city-tree.read-model';
 
 // CitiesQueryService(参照系)のテスト
 // QueryServiceはPrismaから直接Read Modelを組み立てるため、PrismaServiceをモックにして
@@ -356,6 +357,30 @@ describe('■■■ CitiesQueryService test ■■■', () => {
       ).toHaveBeenCalledWith('001');
     });
   });
+
+  //--------------------------------------
+  // findTree() test
+  //--------------------------------------
+  // mockData:
+  // ①Prisma findMany
+  describe('findTree', () => {
+    it('正常系: Prismaデータが一覧用Read Model(全項目)[]に変換され返却されること', async () => {
+      // modk data set
+      mockPrismaService.city.findMany.mockResolvedValue(
+        // mock data 作成： PrismaCity & { districts: { id : string, name : string } }
+        createPrismaCityWithDistrictsMockData(),
+      );
+
+      // test 対象 query service 呼び出し
+      const results = await citiesQueryService.findTree();
+
+      // 検証
+      expect(results).toEqual(createExpectedCityTree());
+    });
+    it('正常系: Prismaデータが一覧用Read Model(任意項目はundefined)[]に変換され返却されること', () => {});
+    it('正常系: Prismaデータが0件の場合、空配列が返却されること', () => {});
+    it('異常系： DB接続エラー', () => {});
+  });
 });
 
 // テストデータ(各テストで共通に使う値)
@@ -366,13 +391,25 @@ describe('■■■ CitiesQueryService test ■■■', () => {
 const CITY_ID = '7c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f';
 const OTHER_CITY_ID = '4449182c-f84b-42c2-8618-3e122e3c4bb9';
 const PREFECTURE_ID = '0f2133bc-1d3c-4094-9acd-85587fcfbc20';
+const DISTRICT_ID = '5b6c7d8e-9f01-4a2b-8c3d-4e5f60718293';
 const USER_ID = '00000000-0000-4000-8000-000000000001';
 const CREATED_AT = new Date('2025-04-05T10:00:00.000Z');
 const UPDATED_AT = new Date('2025-04-05T12:30:00.000Z');
 
-// QueryServiceが受け取るレコードの形(都道府県名をincludeしたもの)
+// City Query Serviceが受け取るレコードの形(都道府県名をincludeしたもの)
 type MockPrismaCityWithPrefecture = PrismaCity & {
   prefecture: { name: string } | null;
+};
+
+// City Query Serviceが受け取るレコードの形(地区情報[]をincludeしたもの)
+type MockPrismaCityWithDistricts = PrismaCity & {
+  districts: {
+    id: string;
+    code: string;
+    name: string;
+    slug: string;
+    sortOrder: number;
+  }[];
 };
 
 /**
@@ -401,7 +438,7 @@ const buildMockPrismaRecord = (
 });
 
 /**
- * City domainのモックデータを作成するヘルパー(掲載中の東京)
+ * Repository用：City domainのモックデータを作成するヘルパー(掲載中の東京)
  * Repository.findByCodeOrFail() の戻り値の代わりに使う
  * domainはモックにせず、本物のCity.reconstitute()で作る(外部依存のない純粋なクラスのため)
  */
@@ -418,3 +455,215 @@ const buildMockCity = (): City =>
     createdAt: CREATED_AT,
     updatedAt: UPDATED_AT,
   });
+
+/**
+ * PrismaのDistrict配列(地区情報[]をinclude)のモックデータを作成するヘルパー
+ * Prisma.city.findMany の戻り値の代わりに使う
+ */
+const createPrismaCityWithDistrictsMockData =
+  (): MockPrismaCityWithDistricts[] => [
+    {
+      // 東京
+      ...buildMockPrismaRecord(),
+      // 地区[]
+      districts: [
+        {
+          id: DISTRICT_ID,
+          code: '00001',
+          name: '銀座',
+          slug: 'ginza',
+          sortOrder: 1,
+        },
+        {
+          id: '6c7d8e9f-0a12-4b3c-9d4e-5f6071829304',
+          code: '00002',
+          name: '恵比寿',
+          slug: 'ebisu',
+          sortOrder: 2,
+        },
+        {
+          id: '7d8e9f0a-1b23-4c4d-8e5f-607182930415',
+          code: '00003',
+          name: '広尾',
+          slug: 'hiroo',
+          sortOrder: 3,
+        },
+        {
+          id: '8e9f0a1b-2c34-4d5e-9f60-718293041526',
+          code: '00004',
+          name: '代官山',
+          slug: 'daikanyama',
+          sortOrder: 4,
+        },
+        {
+          id: '9f0a1b2c-3d45-4e6f-8071-829304152637',
+          code: '00005',
+          name: '六本木',
+          slug: 'roppongi',
+          sortOrder: 5,
+        },
+        {
+          id: 'a01b2c3d-4e56-4f70-9182-930415263748',
+          code: '00006',
+          name: '神楽坂',
+          slug: 'kagurazaka',
+          sortOrder: 6,
+        },
+        {
+          id: 'b12c3d4e-5f67-4081-8293-041526374859',
+          code: '00007',
+          name: '渋谷',
+          slug: 'shibuya',
+          sortOrder: 7,
+        },
+      ],
+    } satisfies MockPrismaCityWithDistricts,
+    {
+      // 大阪
+      ...buildMockPrismaRecord({
+        id: '8c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f',
+        code: '002',
+        name: '大阪',
+        kanaName: 'オオサカ',
+        slug: 'osaka',
+        sortOrder: 2,
+        prefectureId: '1f2133bc-1d3c-4094-9acd-85587fcfbc20',
+        prefecture: { name: '大阪' },
+      }),
+      districts: [
+        {
+          id: '2c7d8e9f-0a12-4b3c-9d4e-5f6071829301',
+          code: '00010',
+          name: '梅田',
+          slug: 'umeda',
+          sortOrder: 10,
+        },
+        {
+          id: '2c7d8e9f-0a12-4b3c-9d4e-5f6071829302',
+          code: '00011',
+          name: '難波',
+          slug: 'umeda',
+          sortOrder: 11,
+        },
+        {
+          id: '2c7d8e9f-0a12-4b3c-9d4e-5f6071829303',
+          code: '00012',
+          name: '心斎橋',
+          slug: 'umeda',
+          sortOrder: 12,
+        },
+      ],
+    } satisfies MockPrismaCityWithDistricts,
+  ];
+
+/**
+ * 期待値：City Tree Read Model (CityTreeReadModel) [] 作成 ※findTree()用
+ *
+ * ※テストの期待値は、「出力はこうなるはず」がそのまま読めるのが理想です。
+ *  ヘルパーで組み立てると、その分だけ1段読み解く必要が出るため、上記のmockデータ作成のように
+ *  ヘルパーを使っていない。
+ *
+ * @returns City Tree Read Model []
+ */
+const createExpectedCityTree = (): CityTreeReadModel[] =>
+  [
+    // 東京
+    {
+      id: CITY_ID,
+      code: '001',
+      name: '東京',
+      kanaName: 'トウキョウ',
+      slug: 'tokyo',
+      status: CityStatus.PUBLISHED,
+      sortOrder: 1,
+      prefectureId: PREFECTURE_ID,
+      // 地区[]
+      districts: [
+        {
+          id: DISTRICT_ID,
+          code: '00001',
+          name: '銀座',
+          slug: 'ginza',
+          sortOrder: 1,
+        },
+        {
+          id: '6c7d8e9f-0a12-4b3c-9d4e-5f6071829304',
+          code: '00002',
+          name: '恵比寿',
+          slug: 'ebisu',
+          sortOrder: 2,
+        },
+        {
+          id: '7d8e9f0a-1b23-4c4d-8e5f-607182930415',
+          code: '00003',
+          name: '広尾',
+          slug: 'hiroo',
+          sortOrder: 3,
+        },
+        {
+          id: '8e9f0a1b-2c34-4d5e-9f60-718293041526',
+          code: '00004',
+          name: '代官山',
+          slug: 'daikanyama',
+          sortOrder: 4,
+        },
+        {
+          id: '9f0a1b2c-3d45-4e6f-8071-829304152637',
+          code: '00005',
+          name: '六本木',
+          slug: 'roppongi',
+          sortOrder: 5,
+        },
+        {
+          id: 'a01b2c3d-4e56-4f70-9182-930415263748',
+          code: '00006',
+          name: '神楽坂',
+          slug: 'kagurazaka',
+          sortOrder: 6,
+        },
+        {
+          id: 'b12c3d4e-5f67-4081-8293-041526374859',
+          code: '00007',
+          name: '渋谷',
+          slug: 'shibuya',
+          sortOrder: 7,
+        },
+      ],
+    } satisfies CityTreeReadModel,
+    // 大阪
+    {
+      id: '8c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f',
+      code: '002',
+      name: '大阪',
+      kanaName: 'オオサカ',
+      slug: 'osaka',
+      status: CityStatus.PUBLISHED,
+      sortOrder: 2,
+      prefectureId: '1f2133bc-1d3c-4094-9acd-85587fcfbc20',
+      // 地区[]
+      districts: [
+        {
+          id: '2c7d8e9f-0a12-4b3c-9d4e-5f6071829301',
+          code: '00010',
+          name: '梅田',
+          slug: 'umeda',
+          sortOrder: 10,
+        },
+        {
+          id: '2c7d8e9f-0a12-4b3c-9d4e-5f6071829302',
+          code: '00011',
+          name: '難波',
+          slug: 'umeda',
+          sortOrder: 11,
+        },
+        {
+          id: '2c7d8e9f-0a12-4b3c-9d4e-5f6071829303',
+          code: '00012',
+          name: '心斎橋',
+          slug: 'umeda',
+          sortOrder: 12,
+        },
+      ],
+    } satisfies CityTreeReadModel,
+    // {} satisfies CityTreeReadModel,
+  ] satisfies CityTreeReadModel[];
