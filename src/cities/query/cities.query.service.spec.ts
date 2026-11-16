@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { City as PrismaCity } from 'generated/prisma';
 import { PAGINATION } from '../../common/constants/pagination.constants';
+import { DistrictStatus } from '../../districts/domain/districts.model';
 import { PrismaService } from '../../prisma/prisma.service';
 import { City, CityStatus } from '../domain/cities.model';
 import {
@@ -376,8 +377,65 @@ describe('■■■ CitiesQueryService test ■■■', () => {
 
       // 検証
       expect(results).toEqual(createExpectedCityTree());
+      // 検証: prisma 引数 (パラメーターがないので条件は固定だが一応)
+      expect(mockPrismaService.city.findMany).toHaveBeenCalledWith({
+        // 都市：公開中のみ
+        where: { status: CityStatus.PUBLISHED },
+        // 都市の並び: sortOrder昇順 → code昇順
+        orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+        // 地区: include の中にも where / orderBy / select を書ける
+        include: {
+          districts: {
+            // 地区: include の中にも where / orderBy / select を書ける
+            where: { status: DistrictStatus.PUBLISHED },
+            orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              slug: true,
+              sortOrder: true,
+            },
+          },
+        },
+      });
     });
-    it('正常系: Prismaデータが一覧用Read Model(任意項目はundefined)[]に変換され返却されること', () => {});
+    it('正常系: Prismaデータが一覧用Read Model(任意項目はundefined)[]に変換され返却されること', async () => {
+      // mock data 作成 (任意項目：null)
+      const prismaMockData = [
+        {
+          ...buildMockPrismaRecord({
+            // include: { prefecture: { select : {} } } でprefectureを取得していないため不要
+            // prefecture: null,
+            prefectureId: null,
+          }),
+          // prismaは配列のデータが存在しない場合、[](空配列)を返す。
+          districts: [],
+        } satisfies MockPrismaCityWithDistricts,
+      ] satisfies MockPrismaCityWithDistricts[];
+      // modk data set
+      mockPrismaService.city.findMany.mockResolvedValue(prismaMockData);
+
+      // test 対象 query service 呼び出し
+      const results = await citiesQueryService.findTree();
+
+      // 検証
+      expect(results).toEqual([
+        // 東京
+        {
+          id: CITY_ID,
+          code: '001',
+          name: '東京',
+          kanaName: 'トウキョウ',
+          slug: 'tokyo',
+          status: CityStatus.PUBLISHED,
+          sortOrder: 1,
+          prefectureId: undefined,
+          // 地区[]: districtsはデータが無い場合[](空配列)
+          districts: [],
+        } satisfies CityTreeReadModel,
+      ]);
+    });
     it('正常系: Prismaデータが0件の場合、空配列が返却されること', () => {});
     it('異常系： DB接続エラー', () => {});
   });

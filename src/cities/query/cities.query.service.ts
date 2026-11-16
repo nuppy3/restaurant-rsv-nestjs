@@ -196,6 +196,7 @@ export class CitiesQueryService {
           // ただ、Prismaはデータが無い場合は空配列[]で返却されるので以下の条件ロジックは
           // 不要だが念の為。
           ...(city.districts && {
+            // .map()は、districtsが空配列の場合も正常に動作し空配列を返却する仕様
             districts: city.districts.map((district) => ({
               id: district.id,
               code: district.code,
