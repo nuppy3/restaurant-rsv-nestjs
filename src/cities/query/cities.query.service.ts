@@ -3,13 +3,15 @@ import { ConfigService } from '@nestjs/config';
 import { City as PrismaCity } from 'generated/prisma';
 import { PAGINATION } from '../../common/constants/pagination.constants';
 import { PaginatedResult } from '../../common/interfaces/paginated-result.interface';
+import { DistrictStatus } from '../../districts/domain/districts.model';
 import { PrismaService } from '../../prisma/prisma.service';
-import { City } from '../domain/cities.model';
+import { City, CityStatus } from '../domain/cities.model';
 import type { CityRepositoryPort } from '../domain/city.repository.port';
 import { CITY_REPOSITORY_PORT } from '../domain/city.repository.port';
 import { CityFilter } from './city.filter';
 import { CityDetailReadModel } from './read-model/city-detail.read-model';
 import { CityListReadModel } from './read-model/city-list.read-model';
+import { CityTreeReadModel } from './read-model/city-tree.read-model';
 
 /**
  * Prismaから取得した都市レコード(都道府県名をinclude)
@@ -146,6 +148,67 @@ export class CitiesQueryService {
    */
   async findByCodeOrFail(code: string): Promise<City> {
     return this.cityRepository.findByCodeOrFail(code);
+  }
+
+  /**
+   * 都市 → 地区の木構造を返します。(都市/地区とも、sortOrder昇順 → code昇順)
+   * 公開中の都市に関連する公開中の地区一覧を取得。
+   *
+   * @returns 都市 → 地区の木構造
+   */
+  async findTree(): Promise<CityTreeReadModel[]> {
+    // 都市 → 地区の木構造を取得
+    const cityTree = await this.prismaService.city.findMany({
+      // 都市：公開中のみ
+      where: { status: CityStatus.PUBLISHED },
+      // 都市の並び: sortOrder昇順 → code昇順
+      orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+      // 地区: include の中にも where / orderBy / select を書ける
+      include: {
+        districts: {
+          // 地区: include の中にも where / orderBy / select を書ける
+          where: { status: DistrictStatus.PUBLISHED },
+          orderBy: [{ sortOrder: 'asc' }, { code: 'asc' }],
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            slug: true,
+            sortOrder: true,
+          },
+        },
+      },
+    });
+
+    // prisma[] → Read Model[]
+    const readModels = cityTree.map(
+      (city) =>
+        ({
+          id: city.id,
+          code: city.code,
+          name: city.name,
+          kanaName: city.kanaName,
+          slug: city.slug,
+          status: city.status,
+          sortOrder: city.sortOrder,
+          prefectureId: city.prefectureId ?? undefined,
+          // districtsがnullの場合はundefined
+          // ただ、Prismaはデータが無い場合は空配列[]で返却されるので以下の条件ロジックは
+          // 不要だが念の為。
+          ...(city.districts && {
+            // .map()は、districtsが空配列の場合も正常に動作し空配列を返却する仕様
+            districts: city.districts.map((district) => ({
+              id: district.id,
+              code: district.code,
+              name: district.name,
+              slug: district.slug,
+              sortOrder: district.sortOrder,
+            })),
+          }),
+        }) satisfies CityTreeReadModel,
+    ) satisfies CityTreeReadModel[];
+
+    return readModels;
   }
 
   /**
