@@ -366,7 +366,7 @@ describe('■■■ CitiesQueryService test ■■■', () => {
   // mockData:
   // ①Prisma findMany
   describe('findTree', () => {
-    it('正常系: Prismaデータが一覧用Read Model(全項目)[]に変換され返却されること', async () => {
+    it('正常系: Prismaデータがツリー用Read Model(全項目)[]に変換され返却されること', async () => {
       // modk data set
       mockPrismaService.city.findMany.mockResolvedValue(
         // mock data 作成： PrismaCity & { districts: { id : string, name : string } }
@@ -401,7 +401,7 @@ describe('■■■ CitiesQueryService test ■■■', () => {
         },
       });
     });
-    it('正常系: Prismaデータが一覧用Read Model(任意項目はundefined)[]に変換され返却されること', async () => {
+    it('正常系: Prismaデータがツリー用Read Model(任意項目はundefined)[]に変換され返却されること', async () => {
       // mock data 作成 (任意項目：null)
       const prismaMockData = [
         {
@@ -623,14 +623,14 @@ const createPrismaCityWithDistrictsMockData =
           id: '2c7d8e9f-0a12-4b3c-9d4e-5f6071829302',
           code: '00011',
           name: '難波',
-          slug: 'umeda',
+          slug: 'namba',
           sortOrder: 11,
         },
         {
           id: '2c7d8e9f-0a12-4b3c-9d4e-5f6071829303',
           code: '00012',
           name: '心斎橋',
-          slug: 'umeda',
+          slug: 'shinsaibashi',
           sortOrder: 12,
         },
       ],
@@ -734,14 +734,14 @@ const createExpectedCityTree = (): CityTreeReadModel[] =>
           id: '2c7d8e9f-0a12-4b3c-9d4e-5f6071829302',
           code: '00011',
           name: '難波',
-          slug: 'umeda',
+          slug: 'namba',
           sortOrder: 11,
         },
         {
           id: '2c7d8e9f-0a12-4b3c-9d4e-5f6071829303',
           code: '00012',
           name: '心斎橋',
-          slug: 'umeda',
+          slug: 'shinsaibashi',
           sortOrder: 12,
         },
       ],
