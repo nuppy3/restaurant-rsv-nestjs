@@ -9,6 +9,7 @@ import {
   Min,
 } from 'class-validator';
 import { PaginatedResult } from 'src/common/interfaces/paginated-result.interface';
+import { DistrictFilter } from 'src/districts/query/district.filter';
 import { PAGINATION } from '../../../../common/constants/pagination.constants';
 import {
   District,
@@ -19,7 +20,7 @@ import {
  * 地区一覧の検索条件DTO(クエリパラメータ: GET /districts?page=1&size=20)
  * クエリパラメータは文字列で届くため、@Type(() => Number)で数値に変換してからチェックする
  */
-export class FindAllDistrictsQueryDto {
+export class FindAllDistrictsQueryDto implements DistrictFilter {
   // エリア名
   @IsOptional() // 任意項目デコレーター(渡された値がnullの場合は、以降のIsString、MaxLengthなどを無視する)
   @IsString() // 任意項目だが入力された際のValidation

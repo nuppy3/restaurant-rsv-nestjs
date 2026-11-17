@@ -69,6 +69,30 @@ export class CitiesController {
   }
 
   /**
+   * 都市一覧を取得する(都市/地区とも、sortOrder昇順 → code昇順)
+   * GET /cities/tree
+   *
+   * 🗒：@Get(':id')より前に定義すること
+   */
+  @Get('tree')
+  async findTree(
+    @Query() query: FindAllCityQueryDto,
+  ): Promise<PaginatedCityResponseDto> {
+    // クエリパラメータ(DTO) → 検索条件(Filter)に詰め替える
+    const filters = {
+      page: query.page ?? undefined,
+      size: query.size ?? undefined,
+    } satisfies CityFilter;
+
+    // 都市一覧情報(Read Model: 都道府県名付き)とページ情報を取得
+    const paginated = await this.citiesQueryService.findAllPaginated(filters);
+
+    // Read Model[] → レスポンスDTO[] に変換し、ページ情報と合わせて返す
+    const data = this.toResponseDto(paginated.data);
+    return new PaginatedCityResponseDto(data, paginated.meta);
+  }
+
+  /**
    * codeに紐づく都市の詳細を取得する。存在しない場合は404
    * GET /cities/code/:code
    *
