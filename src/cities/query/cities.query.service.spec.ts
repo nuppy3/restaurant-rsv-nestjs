@@ -1,6 +1,7 @@
 import { NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { City as PrismaCity } from 'generated/prisma';
 import { PAGINATION } from '../../common/constants/pagination.constants';
 import { DistrictStatus } from '../../districts/domain/districts.model';
@@ -436,8 +437,30 @@ describe('■■■ CitiesQueryService test ■■■', () => {
         } satisfies CityTreeReadModel,
       ]);
     });
-    it('正常系: Prismaデータが0件の場合、空配列が返却されること', () => {});
-    it('異常系： DB接続エラー', () => {});
+
+    it('正常系: Prismaデータが0件の場合、空配列が返却されること', async () => {
+      // modk data set : []
+      mockPrismaService.city.findMany.mockResolvedValue([]);
+
+      // test 対象 query service 呼び出し
+      const results = await citiesQueryService.findTree();
+
+      // 検証
+      expect(results).toEqual([]);
+    });
+
+    it('異常系： DB接続エラー (エラーの伝搬))', async () => {
+      const connectionError = new PrismaClientKnownRequestError(
+        "Can't reach database server",
+        { code: 'P1001', clientVersion: '5.0.0' },
+      );
+      mockPrismaService.city.findMany.mockRejectedValue(connectionError);
+
+      // Query Serviceがエラーをそのまま伝播（reject）することを確認
+      await expect(citiesQueryService.findTree()).rejects.toThrow(
+        PrismaClientKnownRequestError,
+      );
+    });
   });
 });
 
