@@ -9,7 +9,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { CityTreeReadModel } from 'src/cities/query/read-model/city-tree.read-model';
+import { CityTreeReadModel } from '../../../../cities/query/read-model/city-tree.read-model';
 import { PAGINATION } from '../../../../common/constants/pagination.constants';
 import { PaginatedResult } from '../../../../common/interfaces/paginated-result.interface';
 import { CityStatus } from '../../../domain/cities.model';
@@ -223,7 +223,16 @@ export type CityTreeResponseShape = Pick<
 >;
 
 /**
- * CityTreeResponseDto
+ * 都市ツリー情報レスポンスDTO：(都市-地区[])[]
+ * CityTreeReadModelのサブセットDTO
+ *
+ * 特記事項：CityTreeResponseDto implements CityTreeResponseShapeは「最低限これらは持ってるよ」
+ * という約束でしかないらしい。。→ それ以上のプロパティ（testとか、hogeとか）を書いても型エラーにならない（仕様）
+ *
+ * @Expose() をつけると、plainToInstance の変換対象になります。
+ * 返却項目を明示（@Expose）
+ * 不要な項目を除外（@Exclude）
+ * 値の変換（@Transform）
  */
 export class CityTreeResponseDto implements CityTreeResponseShape {
   @Expose() id!: string;

@@ -12,7 +12,11 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { instanceToPlain, plainToInstance } from 'class-transformer';
+import {
+  ClassConstructor,
+  instanceToPlain,
+  plainToInstance,
+} from 'class-transformer';
 import { Request as ExpressRequest } from 'express';
 import { RequestUser } from '../../../types/requestUser';
 import { CitiesService } from '../../application/cities.service';
@@ -22,6 +26,7 @@ import { CitiesQueryService } from '../../query/cities.query.service';
 import { CityFilter } from '../../query/city.filter';
 import {
   CityResponseDto,
+  CityTreeResponseDto,
   CreateCityDto,
   FindAllCityQueryDto,
   PaginatedCityResponseDto,
@@ -64,7 +69,7 @@ export class CitiesController {
     const paginated = await this.citiesQueryService.findAllPaginated(filters);
 
     // Read Model[] → レスポンスDTO[] に変換し、ページ情報と合わせて返す
-    const data = this.toResponseDto(paginated.data);
+    const data = this.toResponseDto(CityResponseDto, paginated.data);
     return new PaginatedCityResponseDto(data, paginated.meta);
   }
 
@@ -73,23 +78,17 @@ export class CitiesController {
    * GET /cities/tree
    *
    * 🗒：@Get(':id')より前に定義すること
+   *
+   * @returns 都市ツリー情報レスポンスDTO(都市-地区[])
    */
   @Get('tree')
-  async findTree(
-    @Query() query: FindAllCityQueryDto,
-  ): Promise<PaginatedCityResponseDto> {
-    // クエリパラメータ(DTO) → 検索条件(Filter)に詰め替える
-    const filters = {
-      page: query.page ?? undefined,
-      size: query.size ?? undefined,
-    } satisfies CityFilter;
+  async findTree(): Promise<CityTreeResponseDto[]> {
+    // 都市ツリー情報(Read Model: 地区情報付き)
+    const tree = await this.citiesQueryService.findTree();
 
-    // 都市一覧情報(Read Model: 都道府県名付き)とページ情報を取得
-    const paginated = await this.citiesQueryService.findAllPaginated(filters);
-
-    // Read Model[] → レスポンスDTO[] に変換し、ページ情報と合わせて返す
-    const data = this.toResponseDto(paginated.data);
-    return new PaginatedCityResponseDto(data, paginated.meta);
+    // Read Model[] → レスポンスDTO[]
+    const dtos = this.toResponseDto(CityTreeResponseDto, tree);
+    return dtos;
   }
 
   /**
@@ -108,7 +107,7 @@ export class CitiesController {
     const readModel =
       await this.citiesQueryService.getDetailByCodeOrThrow(code);
     // Read Model → レスポンスDTO
-    return this.toResponseDto(readModel);
+    return this.toResponseDto(CityResponseDto, readModel);
   }
 
   /**
@@ -123,7 +122,7 @@ export class CitiesController {
     // 都市の詳細(Read Model: 都道府県名・作成日時・更新日時付き)を取得
     const readModel = await this.citiesQueryService.getDetailByIdOrThrow(id);
     // Read Model → レスポンスDTO
-    return this.toResponseDto(readModel);
+    return this.toResponseDto(CityResponseDto, readModel);
   }
 
   /**
@@ -149,7 +148,7 @@ export class CitiesController {
 
     // 作成(ログインユーザーを作成者として保存する) → domain
     const domain = await this.citiesService.create(command, req.user.id);
-    return this.toResponseDto(domain);
+    return this.toResponseDto(CityResponseDto, domain);
   }
 
   /**
@@ -174,7 +173,7 @@ export class CitiesController {
     } satisfies UpdateCityCommand;
 
     const domain = await this.citiesService.update(id, command, req.user.id);
-    return this.toResponseDto(domain);
+    return this.toResponseDto(CityResponseDto, domain);
   }
 
   /**
@@ -188,7 +187,7 @@ export class CitiesController {
     @Request() req: ExpressRequest & { user: RequestUser },
   ): Promise<CityResponseDto> {
     const domain = await this.citiesService.publish(id, req.user.id);
-    return this.toResponseDto(domain);
+    return this.toResponseDto(CityResponseDto, domain);
   }
 
   /**
@@ -202,7 +201,7 @@ export class CitiesController {
     @Request() req: ExpressRequest & { user: RequestUser },
   ): Promise<CityResponseDto> {
     const domain = await this.citiesService.unpublish(id, req.user.id);
-    return this.toResponseDto(domain);
+    return this.toResponseDto(CityResponseDto, domain);
   }
 
   /**
@@ -217,7 +216,7 @@ export class CitiesController {
     @Request() req: ExpressRequest & { user: RequestUser },
   ): Promise<CityResponseDto> {
     const domain = await this.citiesService.remove(id, req.user.id);
-    return this.toResponseDto(domain);
+    return this.toResponseDto(CityResponseDto, domain);
   }
 
   /**
@@ -228,13 +227,19 @@ export class CitiesController {
    * ① シグネチャ(呼び出し側から見える型の約束) / ② 実装(①の両方を満たす型で書く)
    */
   // ① オーバーロードのシグネチャ
-  private toResponseDto(source: object[]): CityResponseDto[];
-  private toResponseDto(source: object): CityResponseDto;
+  // ⭐️20261117:
+  // CityTreeResponseDto[]の変換も必要になり、変換対象のDTOをジェネリクスで受け取るように修正
+  // private toResponseDto(source: object[]): CityResponseDto[];
+  // private toResponseDto(source: object): CityResponseDto;
+  private toResponseDto<T>(destCls: ClassConstructor<T>, source: object[]): T[];
+  private toResponseDto<T>(destCls: ClassConstructor<T>, source: object): T;
 
   // ② 実装
-  private toResponseDto(
+  private toResponseDto<T>(
+    destCls: ClassConstructor<T>,
     source: object | object[],
-  ): CityResponseDto | CityResponseDto[] {
+    // ): CityResponseDto | CityResponseDto[] {
+  ): T | T[] {
     // plainToInstance: domain / Read Model → CityResponseDto のインスタンスに変換する
     //   ・excludeExtraneousValues: @Expose() が無い項目(userId / createdAt など)は捨てる
     //   ・domainはgetter(city.name など)から値が読まれる
@@ -242,10 +247,10 @@ export class CitiesController {
     //   ・getter(statusLabel)の値がここで計算されてレスポンスに含まれる
     //   ・exposeUnsetFields: false で、値が undefined の項目はキーごと省略する
     return instanceToPlain(
-      plainToInstance(CityResponseDto, source, {
+      plainToInstance(destCls, source, {
         excludeExtraneousValues: true,
       }),
       { exposeUnsetFields: false },
-    ) as CityResponseDto | CityResponseDto[];
+    ) as T | T[];
   }
 }
