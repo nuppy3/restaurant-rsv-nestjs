@@ -2,6 +2,7 @@ import { NotFoundException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library';
 import { Request as ExpressRequest } from 'express';
+import { CityTreeReadModel } from '../../../cities/query/read-model/city-tree.read-model';
 import { RequestUser } from '../../../types/requestUser';
 import { CitiesService } from '../../application/cities.service';
 import {
@@ -13,7 +14,7 @@ import { CityAlreadyPublishedException } from '../../domain/errors/cities.except
 import { CitiesQueryService } from '../../query/cities.query.service';
 import { CityDetailReadModel } from '../../query/read-model/city-detail.read-model';
 import { CitiesController } from './cities.controller';
-import { CreateCityDto } from './dto/city.dto';
+import { CityTreeResponseDto, CreateCityDto } from './dto/city.dto';
 import { UpdateCityDto } from './dto/update-city.dto';
 
 // CitiesController(Presentation層)のテスト
@@ -40,6 +41,7 @@ const mockCitiesService = {
 // findAllPaginated / getDetailByIdOrThrow / getDetailByCodeOrThrow は Read Model を返す
 const mockCitiesQueryService = {
   findAllPaginated: jest.fn(),
+  findTree: jest.fn(),
   getDetailByIdOrThrow: jest.fn(),
   getDetailByCodeOrThrow: jest.fn(),
 };
@@ -151,6 +153,123 @@ describe('■■■ CitiesController test ■■■', () => {
       await expect(citiesController.findAllPaginated({})).rejects.toBe(
         connectionError,
       );
+    });
+  });
+
+  //--------------------------------------
+  // findTree() test: GET /cities/tree
+  //--------------------------------------
+  describe('findTree', () => {
+    it('正常系: ReadModel[]がdto[]に詰め替えられ、dto[](@Expose()が付いた全項目)が返却されること', async () => {
+      // service mock data 作成: ツリー情報(Read Model[])
+      mockCitiesQueryService.findTree.mockResolvedValue(
+        createCityTreeReadModelMockData(),
+      );
+
+      // test対象controller呼び出し(GET /cities/tree)
+      const result = await citiesController.findTree();
+
+      // 検証: data はレスポンスの形に変換され(statusLabelが付く)、meta はそのまま返ること
+      expect(result).toEqual(createExpectedCityTreeDto());
+    });
+
+    it('正常系: ReadModel[]がdto[]に詰め替えられ、dto[](undefinedの項目はkey毎削除)が返却されること', async () => {
+      // service mock data 作成: 一覧(Read Model)とページ情報
+      mockCitiesQueryService.findTree.mockResolvedValue([
+        // 東京
+        {
+          id: CITY_ID,
+          code: '001',
+          name: '東京',
+          kanaName: 'トウキョウ',
+          slug: 'tokyo',
+          status: CityStatus.PUBLISHED,
+          sortOrder: 1,
+          prefectureId: undefined,
+          // 地区[]
+          districts: [],
+        } satisfies CityTreeReadModel,
+        // 大阪
+        {
+          id: '8c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f',
+          code: '002',
+          name: '大阪',
+          kanaName: 'オオサカ',
+          slug: 'osaka',
+          status: CityStatus.PUBLISHED,
+          sortOrder: 2,
+          prefectureId: undefined,
+          // 地区[]
+          districts: [],
+        } satisfies CityTreeReadModel,
+      ] satisfies CityTreeReadModel[]);
+
+      // test対象controller呼び出し(GET /cities/tree)
+      const result = await citiesController.findTree();
+
+      // 検証: data はレスポンスの形に変換され(statusLabelが付く)、meta はそのまま返ること
+      expect(result).toEqual([
+        // 東京
+        {
+          id: CITY_ID,
+          code: '001',
+          name: '東京',
+          kanaName: 'トウキョウ',
+          slug: 'tokyo',
+          status: CityStatus.PUBLISHED,
+          sortOrder: 1,
+          // prefectureId: undefined,
+          // 地区[]
+          districts: [],
+        } satisfies CityTreeResponseDto,
+        // 大阪
+        {
+          id: '8c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f',
+          code: '002',
+          name: '大阪',
+          kanaName: 'オオサカ',
+          slug: 'osaka',
+          status: CityStatus.PUBLISHED,
+          sortOrder: 2,
+          // prefectureId: undefined,
+          // 地区[]
+          districts: [],
+        } satisfies CityTreeResponseDto,
+        // {} satisfies CityTreeReadModel,
+      ] satisfies CityTreeResponseDto[]);
+    });
+
+    it('正常系: ReadModel(該当データ)が0件の場合、dtoが空配列で返却されること', async () => {
+      // service mock data 作成: 0件(dataが空配列)
+      mockCitiesQueryService.findTree.mockResolvedValue([]);
+
+      // test対象controller呼び出し
+      const result = await citiesController.findTree();
+
+      // 検証: dataは空配列のまま(nullやundefinedにならない)、metaはそのまま返ること
+      expect(result).toEqual([]);
+    });
+
+    it('異常系: QueryServiceが想定外のエラー(DB接続エラーなど)を投げた場合、そのまま投げられること', async () => {
+      // service mock data 作成: DB接続エラー
+      // mockCitiesQueryService.findAllPaginated.mockRejectedValue(
+      //   new Error('Database connection failed'),
+      // );
+      // 上記でもいいが以下を採用
+      const connectionError = new PrismaClientKnownRequestError(
+        "Can't reach database server",
+        { code: 'P1001', clientVersion: '5.0.0' },
+      );
+      jest
+        .spyOn(mockCitiesQueryService, 'findTree')
+        .mockRejectedValue(connectionError);
+
+      // test対象controller呼び出し、結果検証
+      // Controllerは例外をcatchしないので、握りつぶさずにそのまま伝わること
+      // (HTTPステータス500への変換はグローバルのDomainExceptionFilterが行う)
+      // rejects.toBe: モックが投げたエラー(connectionError)が、別のエラーに包み直されず
+      //               そのまま(同じインスタンスで)伝わっていることを確かめる
+      await expect(citiesController.findTree()).rejects.toBe(connectionError);
     });
   });
 
@@ -351,6 +470,7 @@ describe('■■■ CitiesController test ■■■', () => {
 //         その時点では下の const はすべて初期化済み(TDZ: 宣言前アクセスのエラーにはならない)。
 //         ※ ただし describe() の直下(it() の外)で使うと、読み込み中に実行されるためエラーになる
 const CITY_ID = '7c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f';
+const DISTRICT_ID = '5b6c7d8e-9f01-4a2b-8c3d-4e5f60718293';
 const PREFECTURE_ID = '0f2133bc-1d3c-4094-9acd-85587fcfbc20';
 const USER_ID = '00000000-0000-4000-8000-000000000001';
 
@@ -417,6 +537,111 @@ const buildMockCity = (overrides: Partial<ReconstituteCityProps> = {}): City =>
     ...overrides,
   });
 
+/**
+ * City Tree配列(地区-都市のツリー一覧]のモックデータを作成するヘルパー
+ */
+const createCityTreeReadModelMockData = (): CityTreeReadModel[] =>
+  [
+    // 東京
+    {
+      id: CITY_ID,
+      code: '001',
+      name: '東京',
+      kanaName: 'トウキョウ',
+      slug: 'tokyo',
+      status: CityStatus.PUBLISHED,
+      sortOrder: 1,
+      prefectureId: PREFECTURE_ID,
+      // 地区[]
+      districts: [
+        {
+          id: DISTRICT_ID,
+          code: '00001',
+          name: '銀座',
+          slug: 'ginza',
+          sortOrder: 1,
+        },
+        {
+          id: '6c7d8e9f-0a12-4b3c-9d4e-5f6071829304',
+          code: '00002',
+          name: '恵比寿',
+          slug: 'ebisu',
+          sortOrder: 2,
+        },
+        {
+          id: '7d8e9f0a-1b23-4c4d-8e5f-607182930415',
+          code: '00003',
+          name: '広尾',
+          slug: 'hiroo',
+          sortOrder: 3,
+        },
+        {
+          id: '8e9f0a1b-2c34-4d5e-9f60-718293041526',
+          code: '00004',
+          name: '代官山',
+          slug: 'daikanyama',
+          sortOrder: 4,
+        },
+        {
+          id: '9f0a1b2c-3d45-4e6f-8071-829304152637',
+          code: '00005',
+          name: '六本木',
+          slug: 'roppongi',
+          sortOrder: 5,
+        },
+        {
+          id: 'a01b2c3d-4e56-4f70-9182-930415263748',
+          code: '00006',
+          name: '神楽坂',
+          slug: 'kagurazaka',
+          sortOrder: 6,
+        },
+        {
+          id: 'b12c3d4e-5f67-4081-8293-041526374859',
+          code: '00007',
+          name: '渋谷',
+          slug: 'shibuya',
+          sortOrder: 7,
+        },
+      ],
+    } satisfies CityTreeReadModel,
+    // 大阪
+    {
+      id: '8c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f',
+      code: '002',
+      name: '大阪',
+      kanaName: 'オオサカ',
+      slug: 'osaka',
+      status: CityStatus.PUBLISHED,
+      sortOrder: 2,
+      prefectureId: '1f2133bc-1d3c-4094-9acd-85587fcfbc20',
+      // 地区[]
+      districts: [
+        {
+          id: '2c7d8e9f-0a12-4b3c-9d4e-5f6071829301',
+          code: '00010',
+          name: '梅田',
+          slug: 'umeda',
+          sortOrder: 10,
+        },
+        {
+          id: '2c7d8e9f-0a12-4b3c-9d4e-5f6071829302',
+          code: '00011',
+          name: '難波',
+          slug: 'namba',
+          sortOrder: 11,
+        },
+        {
+          id: '2c7d8e9f-0a12-4b3c-9d4e-5f6071829303',
+          code: '00012',
+          name: '心斎橋',
+          slug: 'shinsaibashi',
+          sortOrder: 12,
+        },
+      ],
+    } satisfies CityTreeReadModel,
+  ] satisfies CityTreeReadModel[];
+
 // レスポンスの期待値(Read Model: 掲載中の東京)
 // ・statusLabel はレスポンスDTOの getter(status → 表示用の文言)から付与される
 // ・createdAt / updatedAt はレスポンスDTOに @Expose() が無いので返らない
@@ -446,3 +671,115 @@ const expectedDomainResponse = {
   sortOrder: 1,
   prefectureId: PREFECTURE_ID,
 };
+
+/**
+ * 期待値：City Tree Response DTO (CityTreeResponseDto) [] 作成 ※findTree()用
+ *
+ * ※テストの期待値は、「出力はこうなるはず」がそのまま読めるのが理想です。
+ *  ヘルパーで組み立てると、その分だけ1段読み解く必要が出るため、上記のmockデータ作成のように
+ *  ヘルパーを使っていない。
+ *
+ * @returns City Tree Read Model []
+ */
+const createExpectedCityTreeDto = (): CityTreeResponseDto[] =>
+  [
+    // 東京
+    {
+      id: CITY_ID,
+      code: '001',
+      name: '東京',
+      kanaName: 'トウキョウ',
+      slug: 'tokyo',
+      status: CityStatus.PUBLISHED,
+      sortOrder: 1,
+      prefectureId: PREFECTURE_ID,
+      // 地区[]
+      districts: [
+        {
+          id: DISTRICT_ID,
+          code: '00001',
+          name: '銀座',
+          slug: 'ginza',
+          sortOrder: 1,
+        },
+        {
+          id: '6c7d8e9f-0a12-4b3c-9d4e-5f6071829304',
+          code: '00002',
+          name: '恵比寿',
+          slug: 'ebisu',
+          sortOrder: 2,
+        },
+        {
+          id: '7d8e9f0a-1b23-4c4d-8e5f-607182930415',
+          code: '00003',
+          name: '広尾',
+          slug: 'hiroo',
+          sortOrder: 3,
+        },
+        {
+          id: '8e9f0a1b-2c34-4d5e-9f60-718293041526',
+          code: '00004',
+          name: '代官山',
+          slug: 'daikanyama',
+          sortOrder: 4,
+        },
+        {
+          id: '9f0a1b2c-3d45-4e6f-8071-829304152637',
+          code: '00005',
+          name: '六本木',
+          slug: 'roppongi',
+          sortOrder: 5,
+        },
+        {
+          id: 'a01b2c3d-4e56-4f70-9182-930415263748',
+          code: '00006',
+          name: '神楽坂',
+          slug: 'kagurazaka',
+          sortOrder: 6,
+        },
+        {
+          id: 'b12c3d4e-5f67-4081-8293-041526374859',
+          code: '00007',
+          name: '渋谷',
+          slug: 'shibuya',
+          sortOrder: 7,
+        },
+      ],
+    } satisfies CityTreeResponseDto,
+    // 大阪
+    {
+      id: '8c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f',
+      code: '002',
+      name: '大阪',
+      kanaName: 'オオサカ',
+      slug: 'osaka',
+      status: CityStatus.PUBLISHED,
+      sortOrder: 2,
+      prefectureId: '1f2133bc-1d3c-4094-9acd-85587fcfbc20',
+      // 地区[]
+      districts: [
+        {
+          id: '2c7d8e9f-0a12-4b3c-9d4e-5f6071829301',
+          code: '00010',
+          name: '梅田',
+          slug: 'umeda',
+          sortOrder: 10,
+        },
+        {
+          id: '2c7d8e9f-0a12-4b3c-9d4e-5f6071829302',
+          code: '00011',
+          name: '難波',
+          slug: 'namba',
+          sortOrder: 11,
+        },
+        {
+          id: '2c7d8e9f-0a12-4b3c-9d4e-5f6071829303',
+          code: '00012',
+          name: '心斎橋',
+          slug: 'shinsaibashi',
+          sortOrder: 12,
+        },
+      ],
+    } satisfies CityTreeResponseDto,
+    // {} satisfies CityTreeReadModel,
+  ] satisfies CityTreeResponseDto[];
