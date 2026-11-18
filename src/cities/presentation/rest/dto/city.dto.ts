@@ -9,6 +9,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { CityTreeReadModel } from '../../../../cities/query/read-model/city-tree.read-model';
 import { PAGINATION } from '../../../../common/constants/pagination.constants';
 import { PaginatedResult } from '../../../../common/interfaces/paginated-result.interface';
 import { CityStatus } from '../../../domain/cities.model';
@@ -20,6 +21,26 @@ import { CityFilter } from '../../../query/city.filter';
  * URL(例: /cities/tokyo)に使うため、URLにそのまま使える文字に限定する
  */
 export const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+
+/**
+ * 都市一覧の検索条件DTO(クエリパラメータ: GET /cities?page=1&size=20)
+ * クエリパラメータは文字列で届くため、@Type(() => Number)で数値に変換してからチェックする
+ */
+export class FindAllCityQueryDto implements CityFilter {
+  @IsOptional()
+  @IsInt() // 整数のみ許容(IsNumberは小数を許容してしまう)
+  @Min(PAGINATION.MIN_PAGE_SIZE)
+  @Max(PAGINATION.MAX_PAGE_SIZE)
+  @Type(() => Number)
+  size?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(PAGINATION.MIN_PAGE)
+  @Max(PAGINATION.MAX_PAGE)
+  @Type(() => Number)
+  page?: number;
+}
 
 /**
  * 都市作成リクエストDTO
@@ -153,22 +174,78 @@ export class PaginatedCityResponseDto implements PaginatedResult<CityResponseDto
   }
 }
 
-/**
- * 都市一覧の検索条件DTO(クエリパラメータ: GET /cities?page=1&size=20)
- * クエリパラメータは文字列で届くため、@Type(() => Number)で数値に変換してからチェックする
- */
-export class FindAllCityQueryDto implements CityFilter {
-  @IsOptional()
-  @IsInt() // 整数のみ許容(IsNumberは小数を許容してしまう)
-  @Min(PAGINATION.MIN_PAGE_SIZE)
-  @Max(PAGINATION.MAX_PAGE_SIZE)
-  @Type(() => Number)
-  size?: number;
+// -------------------------------------------------
+// ResponseDTO(都市ツリー): 型安全な CityTreeReadModel のサブセット
+// -------------------------------------------------
+// 地区の要素の型(CityTreeReadModel['districts'] は「配列 | undefined」なので、
+// NonNullable で undefined を外し、[number] で配列の要素の型を取り出す)
+type CityTreeDistrictReadModel = NonNullable<
+  CityTreeReadModel['districts']
+>[number];
 
-  @IsOptional()
-  @IsInt()
-  @Min(PAGINATION.MIN_PAGE)
-  @Max(PAGINATION.MAX_PAGE)
-  @Type(() => Number)
-  page?: number;
+// 地区
+export const CityTreeDistrictResponseKeys = [
+  'id',
+  'code',
+  'name',
+  'slug',
+  'sortOrder',
+] satisfies (keyof CityTreeDistrictReadModel)[];
+
+export type CityTreeDistrictResponseShape = Pick<
+  CityTreeDistrictReadModel,
+  (typeof CityTreeDistrictResponseKeys)[number]
+>;
+
+export class CityTreeDistrictResponseDto implements CityTreeDistrictResponseShape {
+  @Expose() id!: string;
+  @Expose() code!: string;
+  @Expose() name!: string;
+  @Expose() slug!: string;
+  @Expose() sortOrder!: number;
+}
+
+export const CityTreeResponseKeys = [
+  'id',
+  'code',
+  'name',
+  'kanaName',
+  'slug',
+  'status',
+  'sortOrder',
+  'prefectureId',
+  'districts',
+] satisfies (keyof CityTreeReadModel)[];
+
+export type CityTreeResponseShape = Pick<
+  CityTreeReadModel,
+  (typeof CityTreeResponseKeys)[number] // [] → union('id' | 'code' | 'name' | ... )
+>;
+
+/**
+ * 都市ツリー情報レスポンスDTO：(都市-地区[])[]
+ * CityTreeReadModelのサブセットDTO
+ *
+ * 特記事項：CityTreeResponseDto implements CityTreeResponseShapeは「最低限これらは持ってるよ」
+ * という約束でしかないらしい。。→ それ以上のプロパティ（testとか、hogeとか）を書いても型エラーにならない（仕様）
+ *
+ * @Expose() をつけると、plainToInstance の変換対象になります。
+ * 返却項目を明示（@Expose）
+ * 不要な項目を除外（@Exclude）
+ * 値の変換（@Transform）
+ */
+export class CityTreeResponseDto implements CityTreeResponseShape {
+  @Expose() id!: string;
+  @Expose() code!: string;
+  @Expose() name!: string;
+  @Expose() kanaName!: string;
+  @Expose() slug!: string;
+  @Expose() status!: CityStatus;
+  @Expose() sortOrder!: number;
+  @Expose() prefectureId?: string;
+
+  // 要素を CityTreeDistrictResponseDto に変換する(中身も @Expose の項目だけになる)
+  @Expose()
+  @Type(() => CityTreeDistrictResponseDto)
+  districts?: CityTreeDistrictResponseDto[];
 }
