@@ -8,13 +8,13 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { PaginatedResult } from 'src/common/interfaces/paginated-result.interface';
-import { DistrictFilter } from 'src/districts/query/district.filter';
 import { PAGINATION } from '../../../../common/constants/pagination.constants';
+import { PaginatedResult } from '../../../../common/interfaces/paginated-result.interface';
 import {
   District,
   DistrictStatus,
 } from '../../../../districts/domain/districts.model';
+import { DistrictFilter } from '../../../../districts/query/district.filter';
 
 /**
  * 地区一覧の検索条件DTO(クエリパラメータ: GET /districts?page=1&size=20)
