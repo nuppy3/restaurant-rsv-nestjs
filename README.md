@@ -7,6 +7,16 @@ DDD学習用リポジトリ [nestjs-fleamarket](https://github.com/nuppy3/nestjs
 
 ## 環境構築
 
+### 0. Node.js
+このプロジェクトで使う Node のバージョンは `.nvmrc` に書いてある(nvm で切り替える)。
+
+```bash
+nvm use       # .nvmrc のバージョンに切り替える
+nvm install   # 上でエラーになった(未インストールの)場合はこちら
+```
+
+※ macOS 12 では Node 24 以降の公式ビルドが動かないため、22 系(LTS)を使っている
+
 ### 1. .envファイルの設定
 
 ```bash
