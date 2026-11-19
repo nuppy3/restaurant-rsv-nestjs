@@ -45,4 +45,4 @@ async function bootstrap() {
   console.log(`📘 GraphQL UI Starts at: http://localhost:4000/graphql`);
 }
 
-bootstrap();
+void bootstrap();
