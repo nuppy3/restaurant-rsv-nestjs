@@ -768,7 +768,7 @@ describe('StoresController TEST', () => {
       // const { prefecture, ...domainMockData } = domainWithPrefecture;
       // 20270707: Object(Store)からprefectureをOmitするfunctionを実装し、呼び出し
       mockStoresService.publish.mockResolvedValue(
-        omitPrefecture(domainWithPrefecture) as StoreReadModel,
+        omitPrefecture(domainWithPrefecture),
       );
 
       // テスト対象Controller呼び出し
@@ -811,7 +811,7 @@ describe('StoresController TEST', () => {
         prefecture: undefined,
       };
       mockStoresService.publish.mockResolvedValue(
-        omitPrefecture(domainWithPrefecture) as StoreReadModel,
+        omitPrefecture(domainWithPrefecture),
       );
 
       // テスト対象Controller呼び出し
@@ -907,7 +907,7 @@ describe('StoresController TEST', () => {
         (store) => store.id === id,
       )!;
       mockStoresService.unpublish.mockResolvedValue(
-        omitPrefecture(domainWithPrefecture) as StoreReadModel,
+        omitPrefecture(domainWithPrefecture),
       );
 
       // テスト対象Controller呼び出し
@@ -950,7 +950,7 @@ describe('StoresController TEST', () => {
         prefecture: undefined,
       };
       mockStoresService.unpublish.mockResolvedValue(
-        omitPrefecture(domainWithPrefecture) as StoreReadModel,
+        omitPrefecture(domainWithPrefecture),
       );
 
       // テスト対象Controller呼び出し
