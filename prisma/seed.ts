@@ -40,6 +40,7 @@ async function main() {
   const regionIdByCode = new Map<string, string>();
   for (const r of regions) {
     const data = { ...r, status: 'published' as const, userId: user.id };
+    // Regionテーブル登録
     const region = await prisma.region.upsert({
       where: { code: r.code },
       update: data,
@@ -57,6 +58,7 @@ async function main() {
       regionId: regionIdByCode.get(regionCode),
       userId: user.id,
     };
+    // Prefectureテーブル登録
     const prefecture = await prisma.prefecture.upsert({
       where: { code: p.code },
       update: data,
@@ -74,6 +76,7 @@ async function main() {
       prefectureId: prefectureIdByCode.get(prefectureCode),
       userId: user.id,
     };
+    // Cityテーブル登録
     const city = await prisma.city.upsert({
       where: { code: c.code },
       update: data,
@@ -94,6 +97,7 @@ async function main() {
       );
     }
     const data = { ...d, cityId, userId: user.id };
+    // Districtテーブル登録
     await prisma.district.upsert({
       where: { code: d.code },
       update: data,
@@ -110,6 +114,7 @@ async function main() {
         : null,
       userId: user.id,
     };
+    // Storeテーブル登録
     await prisma.store.upsert({
       where: { code: s.code },
       update: data,
