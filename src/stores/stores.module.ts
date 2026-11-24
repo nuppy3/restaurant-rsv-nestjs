@@ -1,7 +1,7 @@
 /* istanbul ignore file */
 // ↑ これだけで Jest に「このファイルは無視して！」指示！！！
 import { Module } from '@nestjs/common';
-import { AuthModule } from 'src/auth/auth.module';
+import { AuthModule } from '../auth/auth.module';
 import { PrefecturesModule } from '../prefectures/prefectures.module';
 import { PrismaModule } from '../prisma/prisma.module';
 import { StoresController } from './stores.controller';

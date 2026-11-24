@@ -74,12 +74,12 @@ export class CitiesController {
   }
 
   /**
-   * 都市一覧を取得する(都市/地区とも、sortOrder昇順 → code昇順)
+   * 公開中の都市一覧を取得する(都市/地区とも、sortOrder昇順 → code昇順)
    * GET /cities/tree
    *
    * 🗒：@Get(':id')より前に定義すること
    *
-   * @returns 都市ツリー情報レスポンスDTO(都市-地区[])
+   * @returns 公開中の都市ツリー情報レスポンスDTO(都市-地区[])
    */
   @Get('tree')
   async findTree(): Promise<CityTreeResponseDto[]> {
