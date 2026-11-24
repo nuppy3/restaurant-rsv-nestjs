@@ -23,7 +23,6 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "pretest:e2e": "dotenv -e .env.test -- prisma db push --skip-generate && dotenv -e .env.test -- prisma db seed",
     "test:e2e": "dotenv -e .env.test -- jest --config ./test/jest-e2e.json --runInBand"
-
   },
   "dependencies": {
     "@apollo/server": "^5.5.1",
