@@ -114,6 +114,44 @@ $ npm run test
 $ npm run test:cov
 ```
 
+### e2eテスト
+
+実際のDB(Docker の Postgres)に対して、APIをリクエスト単位で確認する。
+開発用のDB(`restaurant_rsv`)とは別の、e2e専用のDB(`restaurant_rsv_test`)を使う。
+
+#### 1. .env.testファイルの設定(初回のみ)
+
+```bash
+$ cp .env .env.test
+```
+
+`.env.test` の `DATABASE_URL` のデータベース名だけを `restaurant_rsv_test` に変える(それ以外は `.env` と同じでよい)。
+
+```bash
+DATABASE_URL="postgresql://ユーザー名:パスワード@localhost:5433/restaurant_rsv_test"
+```
+
+※ `.env.test` は gitignore 対象(パスワード・JWT_SECRETを含むため)
+
+#### 2. 実行
+
+```bash
+# Postgresコンテナ起動(Docker Desktopを起動しておくこと)
+$ docker compose up -d
+
+# e2eテスト実行
+$ npm run test:e2e
+```
+
+`npm run test:e2e` を実行すると、npm の pre スクリプト(`pretest:e2e`)が自動で先に実行され、次の順に動く。
+
+1. `pretest:e2e`: `.env.test` を読み込み(dotenv-cli)、`prisma db push`(DBが無ければ作成し、スキーマを反映)→ `prisma db seed`(初期データ投入)
+2. `test:e2e`: `.env.test` を読み込み、jest で `test/**/*.e2e-spec.ts` を1ファイルずつ順番に実行(`--runInBand`。同じDBを共有するため並列にしない)
+
+- アプリ側の `ConfigModule` は `.env` を読むが、すでに環境変数にある値が優先されるため、e2e 実行時は `.env.test` の `DATABASE_URL`(e2e専用DB)につながる
+- `pretest:e2e` が失敗した場合(Dockerが起動していない等)、e2eテストは実行されない
+- jest を直接実行(`npx jest --config ./test/jest-e2e.json`)すると `pretest:e2e` が呼ばれないため、必ず `npm run test:e2e` で実行する
+
 ## APIドキュメント(Docusaurus)
 
 ```bash
