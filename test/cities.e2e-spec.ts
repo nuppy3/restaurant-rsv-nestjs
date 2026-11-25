@@ -4,7 +4,12 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { CityStatus } from '../src/cities/domain/cities.model';
-import { CityTreeResponseDto } from '../src/cities/presentation/rest/dto/city.dto';
+import {
+  CityPaginationMetaDto,
+  CityResponseDto,
+  CityTreeResponseDto,
+  PaginatedCityResponseDto,
+} from '../src/cities/presentation/rest/dto/city.dto';
 
 describe('■■■ Cities API (e2e) ■■■', () => {
   // テストで起動する Nest のアプリを入れておく変数
@@ -40,17 +45,29 @@ describe('■■■ Cities API (e2e) ■■■', () => {
   //---------------------------------------------
   // GET /cities TEST(findAllPaginated)
   //---------------------------------------------
-  describe('GET /cities/tree', () => {
-    // it('正常系： ページネーション化された都市一覧がsortOrdr順(asc)で返却されること', async () => {
-    // // HTTP サーバーにリクエストを送って、レスポンスを検証するためのテスト用ライブラリ
-    // // ① request(app.getHttpServer()): どのサーバーに送るか
-    // const res = await request(app.getHttpServer())
-    //   // ② メソッドとPath
-    //   .get('/cities/tree')
-    //   // ③ ステータス検証
-    //   .expect(200);
-    // const body = res.body as { tree: ItemResponse[]; total: number };
-    // });
+  describe('GET /cities', () => {
+    it('正常系： ページネーション化された都市一覧がsortOrdr順(asc)で返却されること', async () => {
+      // HTTP サーバーにリクエストを送って、レスポンスを検証するためのテスト用ライブラリ
+      // ① request(app.getHttpServer()): どのサーバーに送るか
+      const res = await request(app.getHttpServer())
+        // ② メソッドとPath
+        .get('/cities')
+        // ③ ステータス検証
+        .expect(200);
+
+      // res.body は any 型なので、as でlintエラー防止
+      const body = res.body as PaginatedCityResponseDto;
+      // 1. ルートが配列で、期待する件数（8都市）であること
+      expect(Array.isArray(body.data)).toBe(true);
+      expect(body.data).toHaveLength(8);
+
+      // 2. body 検証
+      // toMatchObject: 期待値に書いた項目だけを比べる(書いていない項目は無視)
+      // 配列は件数・並び順も一致する必要がある(8件・sortOrder 順の検証にもなる)
+      expect(res.body as PaginatedCityResponseDto).toMatchObject(
+        createExpectedPaginatedCityResponseDto(),
+      );
+    });
   });
 
   //---------------------------------------------
@@ -67,7 +84,7 @@ describe('■■■ Cities API (e2e) ■■■', () => {
         .expect(200);
 
       // res.body は any 型なので、as でlintエラー防止
-      const body = res.body as CityTreeResponseDto[];
+      const body = res.body as CityTreeResponseDto;
 
       // 1. ルートが配列で、期待する件数（8都市）であること
       expect(Array.isArray(body)).toBe(true);
@@ -116,6 +133,127 @@ describe('■■■ Cities API (e2e) ■■■', () => {
     });
   });
 });
+
+/**
+ * 期待値：City Tree Response DTO (CityTreeResponseDto) [] 作成 ※findTree()用
+ *
+ * ※id・prefectureId は seed 実行時に DB で決まる UUID のため、値ではなく
+ * 「文字列であること」だけを検証する
+ *
+ * @returns City Tree Response DTO []
+ */
+const createExpectedPaginatedCityResponseDto = (): PaginatedCityResponseDto => {
+  const cityDto = [
+    // 東京
+    {
+      // id・prefectureId は seed 実行時に DB で決まる UUID のため、値ではなく「文字列であること」だけを検証する
+      id: expect.any(String) as string,
+      code: '001',
+      name: '東京',
+      kanaName: 'トウキョウ',
+      slug: 'tokyo',
+      status: CityStatus.PUBLISHED,
+      statusLabel: '反映中',
+      sortOrder: 1,
+      // 文字列であることの検証
+      prefectureId: expect.any(String) as string,
+    } satisfies CityResponseDto,
+    // 大阪
+    {
+      id: expect.any(String) as string,
+      code: '002',
+      name: '大阪',
+      kanaName: 'オオサカ',
+      slug: 'osaka',
+      status: CityStatus.PUBLISHED,
+      statusLabel: '反映中',
+      sortOrder: 2,
+      prefectureId: expect.any(String) as string,
+    } satisfies CityResponseDto,
+    // 京都
+    {
+      id: expect.any(String) as string,
+      code: '003',
+      name: '京都',
+      kanaName: 'キョウト',
+      slug: 'kyoto',
+      status: CityStatus.PUBLISHED,
+      statusLabel: '反映中',
+      sortOrder: 3,
+      prefectureId: expect.any(String) as string,
+    } satisfies CityResponseDto,
+    // 名古屋
+    {
+      id: expect.any(String) as string,
+      code: '004',
+      name: '名古屋',
+      kanaName: 'ナゴヤ',
+      slug: 'nagoya',
+      status: CityStatus.PUBLISHED,
+      statusLabel: '反映中',
+      sortOrder: 4,
+      prefectureId: expect.any(String) as string,
+    } satisfies CityResponseDto,
+    // 横浜
+    {
+      id: expect.any(String) as string,
+      code: '005',
+      name: '横浜',
+      kanaName: 'ヨコハマ',
+      slug: 'yokohama',
+      status: CityStatus.PUBLISHED,
+      statusLabel: '反映中',
+      sortOrder: 5,
+      prefectureId: expect.any(String) as string,
+    } satisfies CityResponseDto,
+    // 福岡
+    {
+      id: expect.any(String) as string,
+      code: '006',
+      name: '福岡',
+      kanaName: 'フクオカ',
+      slug: 'fukuoka',
+      status: CityStatus.PUBLISHED,
+      statusLabel: '反映中',
+      sortOrder: 6,
+      prefectureId: expect.any(String) as string,
+    } satisfies CityResponseDto,
+    // 札幌
+    {
+      id: expect.any(String) as string,
+      code: '007',
+      name: '札幌',
+      kanaName: 'サッポロ',
+      slug: 'sapporo',
+      status: CityStatus.PUBLISHED,
+      statusLabel: '反映中',
+      sortOrder: 7,
+      prefectureId: expect.any(String) as string,
+    } satisfies CityResponseDto,
+    // 沖縄
+    {
+      id: expect.any(String) as string,
+      code: '008',
+      name: '沖縄',
+      kanaName: 'オキナワ',
+      slug: 'okinawa',
+      status: CityStatus.PUBLISHED,
+      statusLabel: '反映中',
+      sortOrder: 8,
+      prefectureId: expect.any(String) as string,
+    } satisfies CityResponseDto,
+    // {} satisfies CityTreeReadModel,
+  ] satisfies CityResponseDto[];
+
+  return {
+    data: cityDto,
+    meta: {
+      totalCount: 8,
+      page: 1,
+      size: 20,
+    } satisfies CityPaginationMetaDto,
+  } satisfies PaginatedCityResponseDto;
+};
 
 /**
  * 期待値：City Tree Response DTO (CityTreeResponseDto) [] 作成 ※findTree()用
