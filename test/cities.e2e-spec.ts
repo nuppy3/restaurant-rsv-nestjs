@@ -68,6 +68,39 @@ describe('■■■ Cities API (e2e) ■■■', () => {
         createExpectedPaginatedCityResponseDto(),
       );
     });
+
+    // ?page=2&size=3 で3件(code 004〜006)	skip / take の計算
+    it('正常系： クエリーパラメーターの通り、ページネーション化された都市一覧が返却されること', async () => {
+      // HTTP サーバーにリクエストを送って、レスポンスを検証するためのテスト用ライブラリ
+      // ① request(app.getHttpServer()): どのサーバーに送るか
+      const res = await request(app.getHttpServer())
+        // ② メソッドとPath
+        .get('/cities')
+        // クエリパラメータ(GET /cities?page=2&size=3になる)
+        // 🗒パスに直接書いても同じ意味（.get('/cities?page=2&size=3')）
+        .query({ page: 2, size: 3 })
+        // ③ ステータス検証
+        .expect(200);
+
+      // res.body は any 型なので、as でlintエラー防止
+      const body = res.body as PaginatedCityResponseDto;
+      // 検証：ルートが配列で、期待する件数（8都市）であること
+      expect(Array.isArray(body.data)).toBe(true);
+      expect(body.data).toHaveLength(3);
+
+      // 期待値作成: body
+      const expecetedCityDto = createExpectedCityResponseDto().slice(3, 6);
+
+      // 検証: body
+      expect(res.body as PaginatedCityResponseDto).toMatchObject(
+        createExpectedPaginatedCityResponseDto(expecetedCityDto, {
+          page: 2,
+          size: 3,
+        }),
+      );
+    });
+
+    // ?size=0・?page=0・?size=abc で 400(it.each)	ValidationPipe(UT では動かない)
   });
 
   //---------------------------------------------
@@ -135,15 +168,15 @@ describe('■■■ Cities API (e2e) ■■■', () => {
 });
 
 /**
- * 期待値：City Tree Response DTO (CityTreeResponseDto) [] 作成 ※findTree()用
+ * 期待値：City Response DTO (CityResponseDto) [] 作成 ※findAllPaginated()用
  *
  * ※id・prefectureId は seed 実行時に DB で決まる UUID のため、値ではなく
  * 「文字列であること」だけを検証する
  *
- * @returns City Tree Response DTO []
+ * @returns City Response DTO []
  */
-const createExpectedPaginatedCityResponseDto = (): PaginatedCityResponseDto => {
-  const cityDto = [
+const createExpectedCityResponseDto = (): CityResponseDto[] =>
+  [
     // 東京
     {
       // id・prefectureId は seed 実行時に DB で決まる UUID のため、値ではなく「文字列であること」だけを検証する
@@ -245,12 +278,40 @@ const createExpectedPaginatedCityResponseDto = (): PaginatedCityResponseDto => {
     // {} satisfies CityTreeReadModel,
   ] satisfies CityResponseDto[];
 
-  return {
-    data: cityDto,
+/**
+ * 期待値：Paginated City Response DTO (PaginatedCityResponseDto) [] 作成 ※findAllPaginated()用
+ *
+ * ※id・prefectureId は seed 実行時に DB で決まる UUID のため、値ではなく
+ * 「文字列であること」だけを検証する
+ *
+ * @param overrides 項目の上書きパラメーター
+ * @returns Paginated City Response DTO []
+ */
+const createExpectedPaginatedCityResponseDto = (
+  dto?: CityResponseDto[],
+  overrides: Partial<{ page: number; size: number }> = {},
+): PaginatedCityResponseDto => {
+  if (!dto) {
+    dto = createExpectedCityResponseDto();
+  }
+
+  console.log('createExpectedPaginatedCityResponseDto: return DTO =>', {
+    data: dto,
     meta: {
       totalCount: 8,
       page: 1,
       size: 20,
+      ...overrides,
+    } satisfies CityPaginationMetaDto,
+  } satisfies PaginatedCityResponseDto);
+
+  return {
+    data: dto,
+    meta: {
+      totalCount: 8,
+      page: 1,
+      size: 20,
+      ...overrides,
     } satisfies CityPaginationMetaDto,
   } satisfies PaginatedCityResponseDto;
 };
