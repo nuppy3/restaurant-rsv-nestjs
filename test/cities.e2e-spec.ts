@@ -101,6 +101,30 @@ describe('■■■ Cities API (e2e) ■■■', () => {
     });
 
     // ?size=0・?page=0・?size=abc で 400(it.each)	ValidationPipe(UT では動かない)
+    // $testCase: it.each にオブジェクトの行を渡すと、テスト名の $xxx に行の値が入る
+    it.each([
+      { testCase: 'size が最小値(1)未満', query: { size: 0 }, field: 'size' },
+      { testCase: 'page が最小値(1)未満', query: { page: 0 }, field: 'page' },
+      { testCase: 'size が数値でない', query: { size: 'abc' }, field: 'size' },
+    ])(
+      '異常系： $testCase の場合、400(Bad Request)が返却されること',
+      async ({ query, field }) => {
+        // test対象API呼び出し
+        // ValidationPipe が FindAllCityQueryDto のチェックで弾くので、Controller は呼ばれない
+        const res = await request(app.getHttpServer())
+          .get('/cities')
+          .query(query)
+          .expect(400);
+
+        // 検証: ValidationPipe のエラー形式({ statusCode, message: string[], error })で、
+        // 違反した項目名がメッセージに含まれること(どの項目で弾かれたかの確認)
+        const body = res.body as { statusCode: number; message: string[] };
+        expect(body.statusCode).toBe(400);
+        expect(body.message).toEqual(
+          expect.arrayContaining([expect.stringContaining(field)]),
+        );
+      },
+    );
   });
 
   //---------------------------------------------
