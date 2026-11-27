@@ -47,6 +47,7 @@ describe('■■■ Cities API (e2e) ■■■', () => {
   //---------------------------------------------
   describe('GET /cities', () => {
     it('正常系： ページネーション化された都市一覧がsortOrdr順(asc)で返却されること', async () => {
+      // test対象API呼び出し
       // HTTP サーバーにリクエストを送って、レスポンスを検証するためのテスト用ライブラリ
       // ① request(app.getHttpServer()): どのサーバーに送るか
       const res = await request(app.getHttpServer())
@@ -71,6 +72,7 @@ describe('■■■ Cities API (e2e) ■■■', () => {
 
     // ?page=2&size=3 で3件(code 004〜006)	skip / take の計算
     it('正常系： クエリーパラメーターの通り、ページネーション化された都市一覧が返却されること', async () => {
+      // test対象API呼び出し
       // HTTP サーバーにリクエストを送って、レスポンスを検証するためのテスト用ライブラリ
       // ① request(app.getHttpServer()): どのサーバーに送るか
       const res = await request(app.getHttpServer())
@@ -187,6 +189,127 @@ describe('■■■ Cities API (e2e) ■■■', () => {
       expect(res.body as CityTreeResponseDto[]).toMatchObject(
         createExpectedCityTreeDto(),
       );
+    });
+  });
+
+  //---------------------------------------------
+  // GET /cities/code/:code TEST(findByCode)
+  //---------------------------------------------
+  describe('GET /cities/code/:code', () => {
+    // 001 で東京(statusLabel・prefectureName 付き)
+    it('正常系： code に紐づく都市の詳細が返却されること', async () => {
+      // パラメーター
+      const code = '001';
+
+      // HTTP サーバーにリクエストを送って、レスポンスを検証するためのテスト用ライブラリ
+      // ① request(app.getHttpServer()): どのサーバーに送るか
+      const res = await request(app.getHttpServer())
+        // ② メソッドとPath(GET /cities/code/:code の :code に '001' を入れる)
+        // .get('/cities/code/001')
+        .get(`/cities/code/${code}`)
+        // ③ ステータス検証
+        .expect(200);
+
+      // res.body は any 型なので、as でlintエラー防止
+      const body = res.body as CityResponseDto;
+
+      // 検証: body
+      // toMatchObject: 期待値に書いた項目だけを比べる(書いていない項目は無視)
+      expect(body).toMatchObject(
+        createExpectedPaginatedCityResponseDto().data.find(
+          (cityDto) => cityDto.code === code,
+        )!,
+      );
+    });
+
+    // code/999 で 404	例外 → HTTP 404
+    it('異常系： 不正パラメーターのため、該当する都市が存在しないエラー(404)が発生すること', async () => {
+      // パラメーター
+      const code = '999';
+
+      // HTTP サーバーにリクエストを送って、レスポンスを検証するためのテスト用ライブラリ
+      // ① request(app.getHttpServer()): どのサーバーに送るか
+      const res = await request(app.getHttpServer())
+        // ② メソッドとPath
+        // .get('/cities/code/999')
+        .get(`/cities/code/${code}`)
+        // ③ ステータス検証
+        .expect(404);
+
+      // 検証: ValidationPipe のエラー形式({ statusCode, message: string[], error })で、
+      // 違反した項目名がメッセージに含まれること(どの項目で弾かれたかの確認)
+      const body = res.body as { statusCode: number; message: string[] };
+      expect(body.statusCode).toBe(404);
+      expect(body.message).toEqual(
+        `codeに関連する都市情報が存在しません!! code: ${code}`,
+      );
+    });
+  });
+
+  //---------------------------------------------
+  // GET /cities/:id TEST(findOne)
+  //---------------------------------------------
+  describe('GET /cities/:id', () => {
+    // 東京の id(seed 実行時に DB で採番されるため、固定値では書けない)
+    const tokyoCode = '001';
+    let tokyoId: string;
+    const NOT_EXIST_ID = '8c1d2e3f-4a5b-4c6d-8e9f-0a1b2c3d4e5f';
+
+    // 前準備: code(seed で固定の '001')から、東京の id を取得しておく
+    beforeAll(async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/cities/code/${tokyoCode}`)
+        .expect(200);
+      tokyoId = (res.body as CityResponseDto).id;
+    });
+
+    // 001 で東京(statusLabel・prefectureName 付き)
+    it('正常系： id に紐づく都市の詳細が返却されること', async () => {
+      // test対象API呼び出し
+      // HTTP サーバーにリクエストを送って、レスポンスを検証するためのテスト用ライブラリ
+      // ① request(app.getHttpServer()): どのサーバーに送るか
+      const res = await request(app.getHttpServer())
+        // ② メソッドとPath(GET /cities/code/:code の :code に '001' を入れる)
+        // .get('/cities/code/001')
+        .get(`/cities/${tokyoId}`)
+        // ③ ステータス検証
+        .expect(200);
+
+      // res.body は any 型なので、as でlintエラー防止
+      const body = res.body as CityResponseDto;
+
+      // 期待値作成： body
+      // ⭐️このコードいいね： dto[]からdtoを取得して、...dtoで{}にdtoを展開して、idを上書き
+      // 期待値作成： body(東京の期待値を取り出し、id だけ API で取得した値に差し替える)
+      const expectedCityDto = {
+        ...createExpectedCityResponseDto().find(
+          (cityDto) => cityDto.code === tokyoCode,
+        )!,
+        id: tokyoId,
+      };
+
+      // 検証: body
+      // toMatchObject: 期待値に書いた項目だけを比べる(書いていない項目は無視)
+      expect(body).toMatchObject(expectedCityDto);
+    });
+
+    it('異常系： 存在しない id(UUID 形式)の場合、404(Not Found)が返却されること', async () => {
+      await request(app.getHttpServer())
+        .get(`/cities/${NOT_EXIST_ID}`)
+        .expect(404);
+
+      // 🗒e2eでmessageまでは検証しなくていいか。UTでやってるし。
+      //
+      // const body = res.body as { statusCode: number; message: string[] };
+      // expect(body.statusCode).toBe(404);
+      // expect(body.message).toEqual(
+      //   `idに関連する都市情報が存在しません!! id: ${NOT_EXIST_ID}`,
+      // );
+    });
+
+    it('異常系： id が UUID 形式でない場合、400(Bad Request)が返却されること', async () => {
+      // ParseUUIDPipe が弾くので、QueryService は呼ばれない(UT では確認できなかった部分)
+      await request(app.getHttpServer()).get('/cities/abc').expect(400);
     });
   });
 });
@@ -318,16 +441,6 @@ const createExpectedPaginatedCityResponseDto = (
   if (!dto) {
     dto = createExpectedCityResponseDto();
   }
-
-  console.log('createExpectedPaginatedCityResponseDto: return DTO =>', {
-    data: dto,
-    meta: {
-      totalCount: 8,
-      page: 1,
-      size: 20,
-      ...overrides,
-    } satisfies CityPaginationMetaDto,
-  } satisfies PaginatedCityResponseDto);
 
   return {
     data: dto,
