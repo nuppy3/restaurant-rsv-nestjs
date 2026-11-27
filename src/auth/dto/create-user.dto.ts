@@ -6,7 +6,7 @@ import {
   IsStrongPassword,
   MaxLength,
 } from 'class-validator';
-import { UserStatus } from 'generated/prisma';
+import { UserStatus } from '../../../generated/prisma';
 
 export class CreateUserDto {
   @IsString()
